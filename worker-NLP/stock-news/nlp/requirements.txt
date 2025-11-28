@@ -1,0 +1,7 @@
+# Add this to your requirements.txt if needed
+transformers
+torch
+scipy
+pandas
+supabase
+python-dotenv

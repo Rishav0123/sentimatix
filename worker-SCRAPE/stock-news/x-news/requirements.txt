@@ -1,0 +1,10 @@
+selenium
+webdriver_manager
+supabase
+pytz
+requests
+beautifulsoup4
+pandas
+python-dotenv
+feedparser
+python-dateutil
