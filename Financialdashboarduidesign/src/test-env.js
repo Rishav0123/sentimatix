@@ -7,6 +7,8 @@ try {
   console.log('✅ Vite environment variable access test:');
   console.log('VITE_API_URL:', import.meta.env.VITE_API_URL || 'undefined');
   console.log('Base URL will be:', import.meta.env.VITE_API_URL || 'http://localhost:8000');
+  // Build trigger: minor log change to force rebuild in Render when pushed
+  console.log('Build trigger - re-deploy check');
 } catch (error) {
   console.error('❌ Environment variable access failed:', error.message);
 }
