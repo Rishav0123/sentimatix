@@ -23,7 +23,7 @@ export function Watchlist({ stocks: propStocks, onStockClick }: WatchlistProps) 
   const [error, setError] = useState<string | null>(null);
 
   // API configuration
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '').replace(/\/api$/, '');
 
   const fetchWatchlist = async () => {
     try {

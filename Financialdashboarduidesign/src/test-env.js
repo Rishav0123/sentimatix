@@ -15,7 +15,7 @@ try {
 
 // Test API endpoint construction
 try {
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '').replace(/\/api$/, '');
   const stocksEndpoint = `${API_BASE_URL}/api/stocks`;
   const newsEndpoint = `${API_BASE_URL}/api/news`;
   

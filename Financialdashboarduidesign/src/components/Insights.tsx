@@ -45,7 +45,7 @@ export function Insights() {
     try {
       setLoading(true);
       setError(null);
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '').replace(/\/api$/, '');
       const response = await fetch(`${API_BASE_URL}/api/market/insights`);
       if (!response.ok) throw new Error("Failed to fetch market insights");
       const result = await response.json();

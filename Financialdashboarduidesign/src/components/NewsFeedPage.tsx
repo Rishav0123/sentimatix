@@ -172,7 +172,7 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
   const [itemsPerPage] = useState(20); // 20 items per page for 5 pages = 100 total news
 
   // API configuration - Vite uses import.meta.env instead of process.env
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '').replace(/\/api$/, '');
 
   // Helper function to map sentiment string to number
   const mapSentimentToNumber = (sentiment: string): number => {

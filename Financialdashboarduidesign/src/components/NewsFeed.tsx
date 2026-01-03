@@ -42,7 +42,7 @@ export function NewsFeed() {
     try {
       setLoading(true);
 
-      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const API_BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '').replace(/\/api$/, '');
       let url = `${API_BASE_URL}/api/news?page=${page}&limit=${ITEMS_PER_PAGE}`;
       if (sentiment !== 'all') {
         url += `&sentiment=${sentiment}`;
