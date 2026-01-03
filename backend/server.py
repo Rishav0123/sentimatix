@@ -271,6 +271,21 @@ async def options_handler(path: str):
     return {"message": "OK"}
 
 # Create Supabase client
+# Validate required environment variables early and provide a helpful error
+if not SUPABASE_URL or not SUPABASE_KEY:
+    missing = []
+    if not SUPABASE_URL:
+        missing.append("SUPABASE_URL")
+    if not SUPABASE_KEY:
+        missing.append("SUPABASE_KEY")
+    msg = (
+        f"Missing required environment variable(s): {', '.join(missing)}. "
+        "Set them in your environment or add a .env file (see backend/.env.example). "
+        "On Render, set these under Environment > Environment Variables."
+    )
+    logger.error(msg)
+    raise SystemExit(msg)
+
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
     # Test connection
