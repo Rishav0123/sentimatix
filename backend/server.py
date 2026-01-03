@@ -321,8 +321,10 @@ app.add_middleware(
         "http://127.0.0.1:5173",  # Vite dev server
         "http://localhost:3001",  # Alternative React port
         "http://127.0.0.1:3001",  # Alternative React port
-        "*"  # Allow all origins for development (remove in production)
-    ],
+        # Production origins
+        "https://sentimatix.onrender.com",
+        "https://stockify-back.onrender.com",
+    ],  # NOTE: Removed wildcard '*' for production; add origins explicitly
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=[
