@@ -27,7 +27,7 @@ export function MarketSummary() {
   // API configuration
   const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-n  const fetchMarketSummary = async () => {
+  const fetchMarketSummary = async () => {
     try {
       setLoading(true);
       setError(null);
