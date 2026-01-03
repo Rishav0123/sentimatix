@@ -121,14 +121,14 @@ export function MarketSummary() {
         {summaryData?.summary_items.map((item, index) => (
           <div key={index} className="pb-4 border-b border-gray-800 last:border-0 last:pb-0">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <h4 className="text-[#E5E7EB] flex-1">{item.title}</h4>
+              <h4 className="text-white flex-1">{item.title}</h4>
               <div className="flex items-center gap-2">
-                <span className="text-gray-300 text-xs">{item.category}</span>
+                <span className="text-white text-xs">{item.category}</span>
               </div>
             </div>
-            <p className="text-gray-300 text-sm leading-relaxed">{item.description}</p>
+            <p className="text-white text-sm leading-relaxed">{item.description}</p>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-gray-300 text-xs">{item.source}</span>
+              <span className="text-white text-xs">{item.source}</span>
               {item.related_stock && (
                 <span className="text-[#3B82F6] text-xs">{item.related_stock}</span>
               )}
