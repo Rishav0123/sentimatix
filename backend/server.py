@@ -49,10 +49,15 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 # Startup env presence check (non-secret): log whether required vars are set
-logger.info(
+env_msg = (
     f"ENV CHECK: SUPABASE_URL set={bool(SUPABASE_URL)} SUPABASE_KEY set={bool(SUPABASE_KEY)} "
     f"GOOGLE_CLIENT_ID set={bool(GOOGLE_CLIENT_ID)} GOOGLE_CLIENT_SECRET set={bool(GOOGLE_CLIENT_SECRET)}"
 )
+try:
+    logger.info(env_msg)
+except NameError:
+    # logger isn't defined yet (early in startup); fall back to stdout to avoid crashing the process
+    print(env_msg)
 
 # Starlette Config for Authlib
 config = Config(environ={
