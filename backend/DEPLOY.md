@@ -15,4 +15,16 @@ If you're deploying to Render (https://render.com):
 
 If you prefer local development, copy `backend/.env.example` to `.env` and fill values.
 
+A small helper script is available to programmatically set environment variables for a Render service from a local `.env` file: `scripts/set_render_env.py`.
+
+Example (dry-run):
+```bash
+python scripts/set_render_env.py --service-id <SERVICE_ID> --env-file backend/.env --keys SUPABASE_URL,SUPABASE_KEY
+```
+
+Example (apply changes):
+```bash
+python scripts/set_render_env.py --service-id <SERVICE_ID> --api-key $RENDER_API_KEY --env-file backend/.env --keys SUPABASE_URL,SUPABASE_KEY --apply
+```
+
 Security note: treat keys as secrets. Rotate keys immediately if ever committed accidentally.
