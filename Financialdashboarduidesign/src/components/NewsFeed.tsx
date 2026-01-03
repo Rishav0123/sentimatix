@@ -48,7 +48,7 @@ export function NewsFeed() {
         url += `&sentiment=${sentiment}`;
       }
 
-n      console.log(`Fetching: ${url}`);
+      console.log(`Fetching: ${url}`);
       const response = await fetch(url);
 
       if (!response.ok) {
