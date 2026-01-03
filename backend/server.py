@@ -48,6 +48,12 @@ GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+# Startup env presence check (non-secret): log whether required vars are set
+logger.info(
+    f"ENV CHECK: SUPABASE_URL set={bool(SUPABASE_URL)} SUPABASE_KEY set={bool(SUPABASE_KEY)} "
+    f"GOOGLE_CLIENT_ID set={bool(GOOGLE_CLIENT_ID)} GOOGLE_CLIENT_SECRET set={bool(GOOGLE_CLIENT_SECRET)}"
+)
+
 # Starlette Config for Authlib
 config = Config(environ={
     'GOOGLE_CLIENT_ID': GOOGLE_CLIENT_ID,
