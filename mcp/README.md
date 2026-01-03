@@ -126,13 +126,18 @@ Sources:
 
 ## 🔧 Configuration
 
-Edit `server/config.py`:
-```python
-BACKEND_API_URL = "http://localhost:8000/api"
-SUPABASE_URL = "your-supabase-url"
-OPENAI_API_KEY = "your-openai-key"
-EMBEDDING_MODEL = "text-embedding-3-small"
+For detailed configuration instructions, see [Configuration Guide](docs/CONFIGURATION.md).
+
+Quick setup - edit your `.env` file:
+```bash
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_KEY=your_anon_key_here
+SUPABASE_SERVICE_KEY=your_service_role_key_here  # Required for RAG
+OPENAI_API_KEY=your_openai_api_key_here
+BACKEND_API_URL=http://localhost:8000/api
 ```
+
+**⚠️ Important**: The RAG system requires a valid `SUPABASE_SERVICE_KEY` to function properly.
 
 ## 📈 Monitoring
 
@@ -153,7 +158,8 @@ Monitor:
 
 ## 📚 Documentation
 
-See individual module READMEs:
-- [RAG Pipeline](rag/README.md)
-- [MCP Server](server/README.md)
-- [Client Usage](client/README.md)
+See individual module documentation:
+- [Configuration Guide](docs/CONFIGURATION.md) - Complete setup and troubleshooting
+- [RAG Pipeline](rag/README.md) - Vector database and semantic search
+- [MCP Server](server/README.md) - Server implementation details
+- [Client Usage](client/README.md) - Client examples and integration

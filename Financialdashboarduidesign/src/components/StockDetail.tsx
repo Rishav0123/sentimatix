@@ -17,14 +17,14 @@ export function StockDetail({ ticker, onBack }: StockDetailProps) {
       {/* Back Button */}
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#E5E7EB] transition-colors"
+        className="flex items-center gap-2 text-[#9CA3AF] hover:text-[#E5E7EB] transition-colors cursor-pointer"
       >
         <ArrowLeft className="w-5 h-5" />
         <span>Back to Market Overview</span>
       </button>
 
       {/* Company Overview Section */}
-      <CompanyOverview />
+      <CompanyOverview ticker={ticker} />
 
       {/* Sentiment & Price Section */}
       <SentimentChart />
@@ -52,7 +52,7 @@ export function StockDetail({ ticker, onBack }: StockDetailProps) {
                 and market predictions powered by Stockify AI.
               </p>
             </div>
-            <button className="flex items-center gap-2 bg-[#3B82F6] hover:bg-[#3B82F6]/90 text-white px-6 py-3 rounded-lg transition-all hover:scale-105">
+            <button className="flex items-center gap-2 bg-[#3B82F6] hover:bg-[#3B82F6]/90 text-white px-6 py-3 rounded-lg transition-all hover:scale-105 cursor-pointer">
               <FileText className="w-5 h-5" />
               Generate Report
             </button>

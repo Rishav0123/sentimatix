@@ -51,6 +51,11 @@ from server.tools.orchestrator import (
     explain_price_change,
     ORCHESTRATOR_TOOLS_SCHEMA
 )
+from server.tools.enhanced_analysis import (
+    analyze_stock_enhanced,
+    compare_stocks,
+    ENHANCED_ANALYSIS_TOOLS_SCHEMA
+)
 
 # Setup logging
 log_dir = Path(LOG_DIR)
@@ -70,9 +75,9 @@ logger = logging.getLogger(__name__)
 # Validate configuration on startup
 try:
     validate_config()
-    logger.info("✅ Configuration validated successfully")
+    logger.info("Configuration validated successfully")
 except ValueError as e:
-    logger.error(f"❌ Configuration error: {e}")
+    logger.error(f"Configuration error: {e}")
     raise
 
 # Create FastAPI app
@@ -87,10 +92,12 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure properly for production
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=86400,
 )
 
 
@@ -167,7 +174,8 @@ async def list_tools():
         STOCK_TOOLS_SCHEMA +
         NEWS_TOOLS_SCHEMA +
         RAG_TOOLS_SCHEMA +
-        CORRELATION_TOOLS_SCHEMA
+        CORRELATION_TOOLS_SCHEMA +
+        ENHANCED_ANALYSIS_TOOLS_SCHEMA
     )
     
     return {
@@ -178,7 +186,8 @@ async def list_tools():
             "stock_data": 2,
             "news_sentiment": 2,
             "rag": 2,
-            "correlation": 2
+            "correlation": 2,
+            "enhanced_analysis": 2
         }
     }
 
@@ -205,6 +214,12 @@ async def call_tool(
         # Orchestrator tools
         if tool_name == "explain_price_change":
             result = await explain_price_change(**args)
+        
+        # Enhanced analysis tools
+        elif tool_name == "analyze_stock_enhanced":
+            result = await analyze_stock_enhanced(**args)
+        elif tool_name == "compare_stocks":
+            result = await compare_stocks(**args)
         
         # Stock tools
         elif tool_name == "get_stock_summary":
@@ -282,9 +297,9 @@ async def get_stats():
 if __name__ == "__main__":
     import uvicorn
     
-    logger.info(f"🚀 Starting Stockify MCP Server on {MCP_SERVER_HOST}:{MCP_SERVER_PORT}")
-    logger.info(f"📝 Logs: {log_file}")
-    logger.info(f"📚 Documentation: http://{MCP_SERVER_HOST}:{MCP_SERVER_PORT}/docs")
+    logger.info(f"Starting Stockify MCP Server on {MCP_SERVER_HOST}:{MCP_SERVER_PORT}")
+    logger.info(f"Logs: {log_file}")
+    logger.info(f"Documentation: http://{MCP_SERVER_HOST}:{MCP_SERVER_PORT}/docs")
     
     uvicorn.run(
         app,

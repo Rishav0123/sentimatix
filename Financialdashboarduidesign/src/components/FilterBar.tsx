@@ -1,8 +1,9 @@
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface FilterBarProps {
-  onFilterChange: (filters: FilterState) => void;
+  filters: FilterState;
+  onFiltersChange: (filters: FilterState) => void;
 }
 
 export interface FilterState {
@@ -14,18 +15,41 @@ export interface FilterState {
   sentiment: string;
 }
 
-const sectors = [
+// Real sectors from the API - will be populated dynamically
+const defaultSectors = [
   "All Sectors",
-  "Technology",
+  "Aerospace & Defense",
+  "Alcoholic Beverages", 
+  "Automotive",
+  "Aviation",
+  "Banking",
+  "Beverages",
+  "Cement",
+  "Chemicals",
+  "Conglomerate",
+  "Defense & Electronics",
+  "Electricals",
+  "Engineering",
+  "Engineering & Construction",
   "Finance",
+  "Financial Services",
+  "FMCG",
   "Healthcare",
-  "Energy",
-  "Consumer",
-  "Industrial",
-  "Materials",
-  "Utilities",
+  "Hospitality",
+  "Insurance",
+  "IT Services",
+  "Jewellery & Watches",
+  "Logistics & Ports",
+  "Metals",
+  "Mining",
+  "Oil & Gas",
+  "Paints & Chemicals",
+  "Pharmaceuticals",
+  "Power & Utilities",
   "Real Estate",
-  "Telecom",
+  "Retail",
+  "Shipbuilding",
+  "Telecom"
 ];
 
 const indices = [
@@ -45,22 +69,35 @@ const marketCaps = ["All", "Large Cap", "Mid Cap", "Small Cap"];
 
 const sentiments = ["All", "Positive", "Neutral", "Negative"];
 
-export function FilterBar({ onFilterChange }: FilterBarProps) {
-  const [filters, setFilters] = useState<FilterState>({
-    search: "",
-    sector: "All Sectors",
-    index: "All Indices",
-    country: "All Countries",
-    marketCap: "All",
-    sentiment: "All",
-  });
-
+export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [availableSectors, setAvailableSectors] = useState<string[]>(defaultSectors);
+
+  // API configuration
+  const API_BASE_URL = 'http://localhost:8000';
+
+  // Fetch available sectors from API
+  useEffect(() => {
+    const fetchSectors = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/stocks?sentiment_days=7`);
+        if (response.ok) {
+          const stocks = await response.json();
+          const uniqueSectors = [...new Set(stocks.map((stock: any) => stock.sector).filter(Boolean))].sort() as string[];
+          setAvailableSectors(["All Sectors", ...uniqueSectors]);
+        }
+      } catch (error) {
+        console.log('Using default sectors due to API error:', error);
+        // Keep default sectors if API fails
+      }
+    };
+
+    fetchSectors();
+  }, []);
 
   const updateFilter = (key: keyof FilterState, value: string) => {
     const newFilters = { ...filters, [key]: value };
-    setFilters(newFilters);
-    onFilterChange(newFilters);
+    onFiltersChange(newFilters);
   };
 
   const clearFilters = () => {
@@ -72,8 +109,7 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
       marketCap: "All",
       sentiment: "All",
     };
-    setFilters(defaultFilters);
-    onFilterChange(defaultFilters);
+    onFiltersChange(defaultFilters);
   };
 
   const hasActiveFilters =
@@ -131,7 +167,7 @@ export function FilterBar({ onFilterChange }: FilterBarProps) {
             onChange={(e) => updateFilter("sector", e.target.value)}
             className="w-full bg-[#0B1120] border border-gray-800 rounded-lg px-3 py-2 text-[#E5E7EB] text-sm focus:outline-none focus:border-[#3B82F6] transition-colors"
           >
-            {sectors.map((sector) => (
+            {availableSectors.map((sector) => (
               <option key={sector} value={sector}>
                 {sector}
               </option>

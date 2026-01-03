@@ -17,12 +17,17 @@ Copy `.env.example` to `.env` and fill in your credentials:
 cp .env.example .env
 ```
 
+**For detailed configuration instructions and troubleshooting, see [Configuration Guide](docs/CONFIGURATION.md).**
+
 Required variables:
 - `SUPABASE_URL` - Your Supabase project URL
-- `SUPABASE_KEY` - Your Supabase service role key
+- `SUPABASE_KEY` - Your Supabase anon key
+- `SUPABASE_SERVICE_KEY` - **Critical**: Your Supabase service role key (required for RAG)
 - `OPENAI_API_KEY` - Your OpenAI API key
 - `BACKEND_API_URL` - Your backend API URL (e.g., http://localhost:8000/api)
 - `MCP_API_KEY` - Generate a secure key for MCP server authentication
+
+**⚠️ Important**: The RAG system will not work without a valid `SUPABASE_SERVICE_KEY`. See the configuration guide for setup instructions.
 
 ### 3. Setup Vector Database
 
@@ -295,6 +300,7 @@ curl -X POST http://localhost:8001/call \
 1. Ensure vector DB is populated: `python scripts/ingest_historical.py`
 2. Check Supabase SQL Editor: `SELECT COUNT(*) FROM news_embeddings;`
 3. Verify OpenAI API key is valid
+4. **Most common**: Ensure `SUPABASE_SERVICE_KEY` is configured correctly
 
 ### Backend API errors
 
@@ -307,6 +313,8 @@ curl -X POST http://localhost:8001/call \
 1. Ensure news articles have substantive content (not just titles)
 2. Check `prepare_text_for_embedding()` in `rag/embeddings.py`
 3. Consider using different embedding model (currently: text-embedding-3-small)
+
+**For comprehensive troubleshooting and configuration help, see [Configuration Guide](docs/CONFIGURATION.md).**
 
 ## Next Steps
 

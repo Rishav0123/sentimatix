@@ -1,24 +1,22 @@
 import { useState, useEffect } from "react";
 
 interface SectorData {
-  name: string;
-  sentiment: number;
-  count: number;
+  sector: string;
+  sentiment_score: number;
+  news_count: number;
+  positive_count: number;
+  negative_count: number;
+  neutral_count: number;
 }
 
-interface NewsItem {
-  id: string;
-  sector?: string;
-  impact_score: number;
-  sentiment: string;
-  published_at?: string;
-}
-
-interface APIResponse {
-  data: NewsItem[];
+interface SectorAPIResponse {
+  data: SectorData[];
   meta: {
-    found: number;
-    returned: number;
+    period_days: number;
+    start_date: string;
+    end_date: string;
+    total_sectors: number;
+    total_news_items: number;
   };
 }
 
@@ -36,88 +34,37 @@ export function SentimentHeatmap() {
       setLoading(true);
       setError(null);
       
-      // Calculate date range for last 1 month
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() - 1);
+      console.log('📊 Fetching sector sentiment data from new endpoint...');
       
-      const endDateStr = endDate.toISOString().split('T')[0];
-      const startDateStr = startDate.toISOString().split('T')[0];
-      
-      console.log(`📅 Fetching news from ${startDateStr} to ${endDateStr}`);
-      
-      // Fetch data with smaller limit to avoid API 422 errors
-      const response = await fetch(`${API_BASE_URL}/api/news?limit=100`);
+      // Use the new sector sentiment endpoint with longer period to get more data
+      const response = await fetch(`${API_BASE_URL}/api/sector-sentiment?days=365`);
       
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
       
-      const apiData: APIResponse = await response.json();
+      const apiData: SectorAPIResponse = await response.json();
       
-      // Filter for last 1 month based on published_at
-      const oneMonthData = apiData.data.filter(item => {
-        if (!item.published_at) return false;
-        const itemDate = new Date(item.published_at);
-        return itemDate >= startDate && itemDate <= endDate;
-      });
+      console.log('✅ Sector sentiment API response:', apiData);
       
-      console.log(`📊 Filtered ${oneMonthData.length} news items from last month (from ${apiData.data.length} total)`);
+      // Transform the data to match our component interface
+      const transformedData: SectorData[] = apiData.data.map(item => ({
+        sector: item.sector,
+        sentiment_score: item.sentiment_score,
+        news_count: item.news_count,
+        positive_count: item.positive_count,
+        negative_count: item.negative_count,
+        neutral_count: item.neutral_count
+      }));
       
-      // Group news by sector and calculate average sentiment
-      const sectorMap = new Map<string, { scores: number[], count: number }>();
-      
-      oneMonthData.forEach(item => {
-        const sector = item.sector || 'Other';
-        const score = item.impact_score || 0;
-        
-        if (!sectorMap.has(sector)) {
-          sectorMap.set(sector, { scores: [], count: 0 });
-        }
-        
-        const sectorInfo = sectorMap.get(sector)!;
-        sectorInfo.scores.push(score);
-        sectorInfo.count++;
-      });
-      
-      // Calculate average sentiment score for each sector and convert to -100 to +100 scale
-      const allSectors: SectorData[] = Array.from(sectorMap.entries())
-        .map(([name, data]) => {
-          const avgScore = data.scores.reduce((sum, score) => sum + score, 0) / data.scores.length;
-          // Convert impact score (-1 to 1) to sentiment scale (-100 to +100)
-          const sentiment = Math.round(avgScore * 100);
-          
-          return {
-            name,
-            sentiment,
-            count: data.count
-          };
-        })
-        .filter(sector => sector.count >= 2); // Only show sectors with at least 2 news items
-      
-      // Get top 5 positive and top 5 negative sectors
-      const positiveSectors = allSectors
-        .filter(sector => sector.sentiment > 0)
-        .sort((a, b) => b.sentiment - a.sentiment)
-        .slice(0, 5);
-      
-      const negativeSectors = allSectors
-        .filter(sector => sector.sentiment < 0)
-        .sort((a, b) => a.sentiment - b.sentiment)
-        .slice(0, 5);
-      
-      // Combine top positive and negative sectors
-      const sectors = [...positiveSectors, ...negativeSectors];
-      
-      setSectorData(sectors);
+      setSectorData(transformedData);
       setLastUpdated(new Date().toLocaleTimeString());
       
-      console.log('📊 Last month sector sentiment data:', sectors);
-      console.log(`📅 Date range: ${startDateStr} to ${endDateStr}`);
+      console.log(`📊 Processed ${transformedData.length} sectors from ${apiData.meta.total_news_items} news items`);
       
     } catch (err) {
       console.error('❌ Error fetching sector sentiment:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+      setError(err instanceof Error ? err.message : 'Failed to fetch sector data');
     } finally {
       setLoading(false);
     }
@@ -132,24 +79,26 @@ export function SentimentHeatmap() {
     return () => clearInterval(interval);
   }, []);
   const getSentimentColor = (sentiment: number) => {
-    if (sentiment >= 50) return "bg-[#10B981]";    // Positive: >= 50
-    if (sentiment >= 20) return "bg-[#3B82F6]";    // Moderate positive: 20-49
-    if (sentiment >= -20) return "bg-blue-400";    // Neutral: -20 to 19
-    if (sentiment >= -50) return "bg-yellow-500";  // Moderate negative: -50 to -21
-    return "bg-red-500";                           // Negative: < -50
+    if (sentiment >= 30) return "bg-[#10B981]";      // Strong positive: >= 30
+    if (sentiment >= 15) return "bg-[#3B82F6]";      // Moderate positive: 15-29
+    if (sentiment >= 5) return "bg-blue-400";        // Mild positive: 5-14
+    if (sentiment >= -5) return "bg-gray-500";       // Neutral: -5 to 4
+    if (sentiment >= -15) return "bg-yellow-500";    // Mild negative: -15 to -6
+    if (sentiment >= -30) return "bg-orange-500";    // Moderate negative: -30 to -16
+    return "bg-red-500";                             // Strong negative: < -30
   };
 
   const getSentimentOpacity = (sentiment: number) => {
-    // Convert -100 to 100 scale to opacity percentage (30% to 90%)
-    const normalizedSentiment = (sentiment + 100) / 200; // Convert to 0-1 scale
-    const opacity = Math.max(30, Math.min(90, normalizedSentiment * 60 + 30));
+    // Convert -50 to 50 scale to opacity percentage (40% to 90%)
+    const normalizedSentiment = Math.max(-50, Math.min(50, sentiment)); // Clamp to -50 to 50
+    const opacity = ((normalizedSentiment + 50) / 100) * 50 + 40; // Map to 40-90%
     return `${Math.round(opacity)}%`;
   };
 
   return (
     <div className="bg-[#111827] rounded-xl p-6 border border-gray-800">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#E5E7EB] text-xl">Top Sector Sentiments (Last Month)</h3>
+        <h3 className="text-[#E5E7EB] text-xl">Top Sector Sentiments (Last Year)</h3>
         <button
           onClick={fetchSectorSentiment}
           disabled={loading}
@@ -174,15 +123,15 @@ export function SentimentHeatmap() {
           <div className="grid grid-cols-5 gap-3">
             {sectorData.slice(0, 10).map((sector) => (
               <div
-                key={sector.name}
-                className={`${getSentimentColor(sector.sentiment)} rounded-lg p-4 relative overflow-hidden group cursor-pointer transition-transform hover:scale-105`}
-                style={{ opacity: getSentimentOpacity(sector.sentiment) }}
-                title={`${sector.name}: ${sector.sentiment}/100 (${sector.count} news items from last month)`}
+                key={sector.sector}
+                className={`${getSentimentColor(sector.sentiment_score)} rounded-lg p-4 relative overflow-hidden group cursor-pointer transition-transform hover:scale-105`}
+                style={{ opacity: getSentimentOpacity(sector.sentiment_score) }}
+                title={`${sector.sector}: ${sector.sentiment_score}/100 (${sector.news_count} news items from last year)`}
               >
                 <div className="relative z-10">
-                  <p className="text-white text-sm mb-1 truncate">{sector.name}</p>
-                  <p className="text-white opacity-90 text-lg font-semibold">{sector.sentiment}</p>
-                  <p className="text-white opacity-70 text-xs">{sector.count} items</p>
+                  <p className="text-white text-sm mb-1 truncate">{sector.sector}</p>
+                  <p className="text-white opacity-90 text-lg font-semibold">{sector.sentiment_score}</p>
+                  <p className="text-white opacity-70 text-xs">{sector.news_count} items</p>
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
@@ -200,11 +149,15 @@ export function SentimentHeatmap() {
       <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
         <div className="flex items-center gap-2 text-xs text-[#9CA3AF]">
           <div className="w-3 h-3 bg-red-500 rounded-sm" />
+          <span>Strong Negative</span>
+          <div className="w-3 h-3 bg-orange-500 rounded-sm ml-2" />
           <span>Negative</span>
-          <div className="w-3 h-3 bg-yellow-500 rounded-sm ml-2" />
+          <div className="w-3 h-3 bg-gray-500 rounded-sm ml-2" />
           <span>Neutral</span>
-          <div className="w-3 h-3 bg-[#10B981] rounded-sm ml-2" />
+          <div className="w-3 h-3 bg-blue-400 rounded-sm ml-2" />
           <span>Positive</span>
+          <div className="w-3 h-3 bg-[#10B981] rounded-sm ml-2" />
+          <span>Strong Positive</span>
         </div>
         <p className="text-xs text-[#9CA3AF]">
           {lastUpdated ? `Updated ${lastUpdated}` : "Loading..."}

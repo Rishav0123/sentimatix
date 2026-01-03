@@ -4,11 +4,13 @@ export interface MCPMessage {
   content: string;
   timestamp?: string;
   metadata?: {
-    symbol?: string;
+    symbol?: string; // Primary symbol if single stock
+    symbols?: string[]; // List of symbols if comparison
     tool_status?: Record<string, string>;
     price_change?: number;
     sentiment_score?: number;
     correlation?: number;
+    comparison_data?: any; // Store raw comparison result for UI hacks
   };
 }
 
@@ -19,12 +21,13 @@ export interface PriceExplanation {
     end_date: string;
     days: number;
   };
-  stock_summary: {
+  stock_summary?: {
     symbol: string;
-    current_price: number;
-    change: number;
+    name: string;
+    current_price: number | string;
+    formatted_price?: string;
     change_percent: number;
-    volatility: number;
+    period: string;
   };
   sentiment_aggregate: {
     total_articles?: number;
@@ -41,6 +44,7 @@ export interface PriceExplanation {
     sentiment: string;
     relevance_score: number;
     match_quality: string;
+    url?: string;
   }>;
   correlation: {
     correlation_coefficient: number;
@@ -48,7 +52,57 @@ export interface PriceExplanation {
     interpretation: string;
     recommendation: string;
   } | null;
+  news_sentiment?: Array<{
+    title: string;
+    source: string;
+    published_at: string;
+    sentiment?: string;
+    sentiment_score?: number;
+    url?: string;
+  }>;
+  insights?: {
+    bottom_line: string;
+    key_drivers: string[];
+    risk_factors: string[];
+    recommendation: string;
+    confidence_level: string;
+    market_themes: string[];
+  };
   tool_status: Record<string, string>;
+}
+
+export interface ComparisonResult {
+  comparison_summary: {
+    period: string;
+    stocks_analyzed: number;
+    best_performer: string;
+    worst_performer: string;
+  };
+  stock_comparison: Array<{
+    symbol: string;
+    rank: number;
+    performance: {
+      change_percent: number;
+      change: number;
+      current_price: number;
+    };
+    sentiment: {
+      score: number;
+      trend: string;
+    };
+    key_strength: string;
+    key_weakness: string;
+  }>;
+  comparative_insights: {
+    performance_leader: { symbol: string; reason: string };
+    sentiment_leader: { symbol: string; reason: string };
+  };
+  recommendation_ranking: Array<{
+    symbol: string;
+    rating: string;
+    rationale: string;
+    confidence: string;
+  }>;
 }
 
 export class MCPAPI {
@@ -56,116 +110,169 @@ export class MCPAPI {
   private apiKey: string;
 
   constructor(
-    baseURL: string = import.meta.env.VITE_MCP_URL || 'http://localhost:8001',
-    apiKey: string = import.meta.env.VITE_MCP_API_KEY || 'stockify-mcp-2025'
+    baseURL: string = (import.meta as any).env?.VITE_MCP_URL || 'http://localhost:8003',
+    apiKey: string = (import.meta as any).env?.VITE_MCP_API_KEY || 'dev-key-12345'
   ) {
-    this.baseURL = baseURL;
-    this.apiKey = apiKey;
+    // Force correct values to ensure connection works
+    this.baseURL = 'http://localhost:8003';
+    this.apiKey = 'dev-key-12345';
+
+    console.log('🔧 MCP API initialized:', { baseURL: this.baseURL, apiKey: this.apiKey });
   }
 
   /**
-   * Parse natural language query to extract stock symbol and date range
+   * Parse natural language query to extract stock symbols and date range
    */
   private parseQuery(query: string): {
-    symbol: string | null;
+    symbols: string[];
     period: string | null;
-    action: 'explain' | 'analyze' | 'unknown';
+    action: 'explain' | 'analyze' | 'compare' | 'unknown';
   } {
     const queryLower = query.toLowerCase();
-    
-    // Extract symbol (common patterns)
-    let symbol: string | null = null;
-    const symbolPatterns = [
-      /\b(hdfc\s*bank|hdfcbank)\b/i,
-      /\b(tcs)\b/i,
-      /\b(infy|infosys)\b/i,
-      /\b(reliance|ril)\b/i,
-      /\b(wipro)\b/i,
-      /\b(icici\s*bank|icicibank)\b/i,
-      /\b(sbi|state\s*bank)\b/i,
-      /\b(axis\s*bank|axisbank)\b/i,
-      /\b(kotak|kotak\s*bank)\b/i,
-      /\b([A-Z]{2,})\b/,  // Generic uppercase symbols
-    ];
 
-    for (const pattern of symbolPatterns) {
-      const match = query.match(pattern);
-      if (match) {
-        symbol = match[1].replace(/\s+/g, '').toUpperCase();
-        // Normalize common names
-        if (symbol === 'HDFCBANK' || symbol === 'HDFC') symbol = 'HDFCBANK';
-        if (symbol === 'INFOSYS') symbol = 'INFY';
-        if (symbol === 'RIL') symbol = 'RELIANCE';
-        if (symbol === 'ICICIBANK' || symbol === 'ICICI') symbol = 'ICICIBANK';
-        if (symbol === 'STATEBANK') symbol = 'SBILIFE';
-        if (symbol === 'AXISBANK') symbol = 'AXISBANK';
-        if (symbol === 'KOTAKBANK' || symbol === 'KOTAK') symbol = 'KOTAKBANK';
-        break;
+    // Extract symbols with improved mapping
+    const foundSymbols = new Set<string>();
+
+    // Define comprehensive symbol mapping
+    const symbolMappings: Record<string, string> = {
+      // Major IT companies
+      'tcs': 'TCS',
+      'tata consultancy': 'TCS',
+      'infosys': 'INFY',
+      'infy': 'INFY',
+      'wipro': 'WIPRO',
+      'hcl tech': 'HCLTECH',
+      'hcltech': 'HCLTECH',
+      'tech mahindra': 'TECHM',
+
+      // Banking sector
+      'hdfc': 'HDFCBANK',
+      'hdfc bank': 'HDFCBANK',
+      'hdfcbank': 'HDFCBANK',
+      'icici': 'ICICIBANK',
+      'icici bank': 'ICICIBANK',
+      'sbi': 'SBIN',
+      'state bank': 'SBIN',
+      'axis': 'AXISBANK',
+      'axis bank': 'AXISBANK',
+      'kotak': 'KOTAKBANK',
+      'pnb': 'PNB',
+
+      // Other major stocks
+      'reliance': 'RELIANCE',
+      'ril': 'RELIANCE',
+      'airtel': 'BHARTIARTL',
+      'bharti airtel': 'BHARTIARTL',
+      'ntpc': 'NTPC',
+      'ongc': 'ONGC',
+      'ioc': 'IOC',
+      'itc': 'ITC',
+      'hul': 'HINDUNILVR',
+      'hindustan unilever': 'HINDUNILVR',
+      'bajaj finance': 'BAJFINANCE',
+      'maruti': 'MARUTI',
+      'asian paints': 'ASIANPAINT',
+      'nestle': 'NESTLEIND',
+      'titan': 'TITAN',
+      'sun pharma': 'SUNPHARMA',
+      'dr reddy': 'DRREDDY',
+      'cipla': 'CIPLA',
+      'tata steel': 'TATASTEEL',
+      'jsw steel': 'JSWSTEEL',
+      'hindalco': 'HINDALCO',
+      'vedanta': 'VEDL',
+      'adani enterprises': 'ADANIENT',
+      'adani ports': 'ADANIPORTS',
+      'power grid': 'POWERGRID',
+      'ultratech': 'ULTRACEMCO',
+      'mahindra': 'M&M',
+      'tata motors': 'TATAMOTORS'
+    };
+
+    // Check for symbol mappings in the query
+    // Sort keys by length descending to match longest phrases first (e.g. "HDFC Bank" before "HDFC")
+    const sortedKeys = Object.keys(symbolMappings).sort((a, b) => b.length - a.length);
+
+    let tempQuery = queryLower;
+
+    for (const key of sortedKeys) {
+      if (tempQuery.includes(key)) { // Use boundary check ideally, but keep simple for now
+        // Simple replacement to avoid double matching substrings
+        // But need to be careful. For now, just add to set.
+        // A better way is to see if the word exists as a distinct token or phrase
+        if (new RegExp(`\\b${key}\\b`).test(tempQuery)) {
+          foundSymbols.add(symbolMappings[key]);
+          // Don't remove from query to allow for context, but we handle the "HDFC Bank" vs "HDFC" via sort order
+        }
       }
     }
 
-    // Determine time period - check from most specific to least specific
+    // Also look for explicit CAPS symbols like "INFY" or "RELIANCE" if they weren't caught
+    const genericSymbolMatch = query.match(/\b([A-Z]{2,})\b/g);
+    if (genericSymbolMatch) {
+      genericSymbolMatch.forEach(sym => {
+        const candidate = sym.toUpperCase();
+
+        // 1. Check if it's a known mapped value (e.g. HDFCBANK)
+        if (Object.values(symbolMappings).includes(candidate)) {
+          foundSymbols.add(candidate);
+          return;
+        }
+
+        // 2. Check if it's a known mapping key (e.g. HDFC -> HDFCBANK)
+        const mappedValue = symbolMappings[candidate.toLowerCase()];
+        if (mappedValue) {
+          foundSymbols.add(mappedValue);
+          return;
+        }
+
+        // 3. Heuristic for unknown symbols
+        if (candidate.length >= 3 && !['THE', 'AND', 'FOR', 'WHO', 'WHY', 'HOW', 'WITH', 'BETWEEN'].includes(candidate)) {
+          foundSymbols.add(candidate);
+        }
+      });
+    }
+
+    const symbols = Array.from(foundSymbols);
+
+    // Determine time period
     let period: string | null = null;
-    
-    // Check for specific number of days/months
     const daysMatch = queryLower.match(/(\d+)\s*days?/);
-    const weeksMatch = queryLower.match(/(\d+)\s*weeks?/);
     const monthsMatch = queryLower.match(/(\d+)\s*months?/);
-    
+
     if (daysMatch) {
-      const days = parseInt(daysMatch[1]);
-      period = `${days}days`;
-      console.log(`🔍 Detected: ${days} days`);
-    } else if (weeksMatch) {
-      const weeks = parseInt(weeksMatch[1]);
-      period = `${weeks * 7}days`;
-      console.log(`🔍 Detected: ${weeks} weeks = ${weeks * 7} days`);
+      period = `${daysMatch[1]}days`;
     } else if (monthsMatch) {
-      const months = parseInt(monthsMatch[1]);
-      period = `${months * 30}days`;
-      console.log(`🔍 Detected: ${months} months = ${months * 30} days`);
+      period = `${parseInt(monthsMatch[1]) * 30}days`;
     } else if (queryLower.includes('today')) {
       period = '1day';
-    } else if (queryLower.includes('yesterday')) {
-      period = '2days';
-    } else if (queryLower.includes('this week') || queryLower.includes('last week')) {
+    } else if (queryLower.includes('week')) {
       period = '7days';
-    } else if (queryLower.includes('this month') || queryLower.includes('last month')) {
+    } else if (queryLower.includes('month')) {
       period = '30days';
-    } else if (queryLower.includes('quarter') || queryLower.includes('q1') || queryLower.includes('q2') || queryLower.includes('q3') || queryLower.includes('q4')) {
-      period = '90days';
-    } else if (queryLower.includes('year') || queryLower.includes('ytd')) {
+    } else if (queryLower.includes('year')) {
       period = '365days';
     } else {
-      period = '30days'; // Default to 1 month
+      period = '30days'; // Default
     }
 
-    // Determine action - be very permissive, default to 'analyze' if symbol found
-    let action: 'explain' | 'analyze' | 'unknown' = 'unknown';
-    
-    // Action keywords - very broad patterns
-    const actionKeywords = [
-      'why', 'what', 'how', 'tell', 'show', 'give', 'get',
-      'explain', 'analyze', 'analysis', 'summary', 'summery',
-      'performance', 'news', 'update', 'report', 'insight',
-      'happened', 'going', 'doing', 'move', 'moved', 'change',
-      'about', 'regarding', 'concerning', 'related',
-      'look', 'check', 'see', 'view', 'find', 'search'
-    ];
+    // Determine action
+    let action: 'explain' | 'analyze' | 'compare' | 'unknown' = 'unknown';
 
-    const hasActionKeyword = actionKeywords.some(keyword => queryLower.includes(keyword));
-    
-    // If we found a symbol and any action-like keyword (or even without), treat as valid
-    if (symbol) {
-      if (hasActionKeyword || queryLower.split(' ').length <= 5) {
-        // Short queries with symbol = likely want analysis
+    if (symbols.length > 1 || queryLower.includes('compare') || queryLower.includes('comparison') || queryLower.includes('vs') || queryLower.includes('versus')) {
+      if (symbols.length >= 2) {
+        action = 'compare';
+      } else if (symbols.length === 1 && (queryLower.includes('compare') || queryLower.includes('vs'))) {
+        // User asked to compare but only gave one symbol? Ambiguous. Fallback to analyze.
         action = 'analyze';
-      } else {
-        action = 'analyze'; // Default to analyze if symbol found
+      } else if (symbols.length > 1) {
+        action = 'compare';
       }
+    } else if (symbols.length === 1) {
+      action = 'analyze';
     }
 
-    return { symbol, period, action };
+    return { symbols, period, action };
   }
 
   /**
@@ -175,33 +282,13 @@ export class MCPAPI {
     const endDate = new Date();
     const startDate = new Date();
 
-    // Extract number of days if period format is "Xdays"
     const daysMatch = period.match(/^(\d+)days?$/);
-    
+
     if (daysMatch) {
-      const days = parseInt(daysMatch[1]);
-      startDate.setDate(startDate.getDate() - days);
+      startDate.setDate(startDate.getDate() - parseInt(daysMatch[1]));
     } else {
-      // Fallback for legacy fixed periods
-      switch (period) {
-        case '1day':
-          startDate.setDate(startDate.getDate() - 1);
-          break;
-        case '7days':
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case '30days':
-          startDate.setDate(startDate.getDate() - 30);
-          break;
-        case '90days':
-          startDate.setDate(startDate.getDate() - 90);
-          break;
-        case '365days':
-          startDate.setDate(startDate.getDate() - 365);
-          break;
-        default:
-          startDate.setDate(startDate.getDate() - 30);
-      }
+      // Fallback
+      startDate.setDate(startDate.getDate() - 30);
     }
 
     return {
@@ -211,153 +298,262 @@ export class MCPAPI {
   }
 
   /**
-   * Format the explanation into a natural language response
+   * Map Xdays to MCP period format (1d, 1w, 1m, 3m, 6m, 1y)
    */
-  private formatResponse(data: PriceExplanation, query: string, dateRange?: {start_date: string, end_date: string}): string {
-    const { symbol, stock_summary, sentiment_aggregate, rag_evidence, correlation, tool_status } = data;
+  private getMCPPeriod(period: string): string {
+    const daysMatch = period.match(/^(\d+)days?$/);
+    if (!daysMatch) return '1m';
+    const days = parseInt(daysMatch[1]);
 
-    let response = '';
+    if (days <= 1) return '1d';
+    if (days <= 7) return '1w';
+    if (days <= 30) return '1m';
+    if (days <= 90) return '3m';
+    if (days <= 180) return '6m';
+    return '1y';
+  }
 
-    // Check if we have price data
-    if (!stock_summary || stock_summary.current_price === undefined || tool_status?.stock_summary === 'error') {
-      response += `**${symbol} Analysis**\n\n`;
-      response += `⚠️ **No price data available** for ${symbol} in the requested period.\n\n`;
-      
-      // Show what data we do have
-      if (sentiment_aggregate && sentiment_aggregate.total_articles && sentiment_aggregate.total_articles > 0) {
-        const sentimentDirection = sentiment_aggregate.avg_sentiment >= 0 ? 'positive' : 'negative';
-        response += `📊 **Sentiment Analysis (Available):**\n`;
-        response += `Found ${sentiment_aggregate.total_articles} articles with ${sentimentDirection} sentiment `;
-        response += `(${(sentiment_aggregate.avg_sentiment * 100).toFixed(1)}%).\n\n`;
-      }
+  /**
+   * Format the single stock response
+   */
+  private formatResponse(data: PriceExplanation, query: string, dateRange?: { start_date: string, end_date: string }): string {
+    console.log('📝 Raw Analysis Data:', JSON.stringify(data, null, 2));
+    const { symbol, stock_summary, sentiment_aggregate, rag_evidence, news_sentiment, correlation } = data;
 
-      if (rag_evidence && rag_evidence.length > 0) {
-        response += `📰 **Recent News:**\n`;
-        rag_evidence.slice(0, 3).forEach((evidence, idx) => {
-          response += `${idx + 1}. **${evidence.title}** (${evidence.source})\n`;
-        });
-        response += `\n`;
-      }
-
-      response += `💡 **Note:** This stock may not have price data in our database, or the symbol might be different. `;
-      response += `Try these symbols: HDFCBANK, TCS, INFY, RELIANCE, ICICIBANK, AXISBANK, KOTAKBANK\n`;
-      
-      return response;
+    if (!stock_summary || stock_summary.current_price === undefined) {
+      return `⚠️ **Data Unavailable**\n\nCould not fetch analysis for ${symbol}. Please try another symbol.`;
     }
 
-    // Opening - we have price data
-    const change = stock_summary.change_percent;
-    const direction = change >= 0 ? 'up' : 'down';
-    const absChange = Math.abs(change).toFixed(2);
-    
-    response += `**${symbol} Price Movement Analysis**\n\n`;
-    
-    // Show date range if provided
+    let response = `**${symbol} Analysis**\n\n`;
+
     if (dateRange) {
-      const startFormatted = new Date(dateRange.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      const endFormatted = new Date(dateRange.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      response += `📅 **Period:** ${startFormatted} to ${endFormatted}\n\n`;
-    }
-    
-    response += `${symbol} moved **${direction} by ${absChange}%** `;
-    response += `(₹${stock_summary.change >= 0 ? '+' : ''}${stock_summary.change.toFixed(2)}) `;
-    response += `to ₹${stock_summary.current_price.toFixed(2)}.\n\n`;
-
-    // Sentiment analysis
-    if (sentiment_aggregate && sentiment_aggregate.total_articles && sentiment_aggregate.total_articles > 0) {
-      const sentimentDirection = sentiment_aggregate.avg_sentiment >= 0 ? 'positive' : 'negative';
-      response += `📊 **Sentiment Analysis:**\n`;
-      response += `Overall sentiment is ${sentimentDirection} (${(sentiment_aggregate.avg_sentiment * 100).toFixed(1)}%), `;
-      response += `with ${sentiment_aggregate.positive_count} positive, `;
-      response += `${sentiment_aggregate.negative_count} negative, and `;
-      response += `${sentiment_aggregate.neutral_count} neutral articles.\n\n`;
+      response += `📅 **Period:** ${dateRange.start_date} to ${dateRange.end_date}\n\n`;
     }
 
-    // Key news evidence
-    if (rag_evidence && rag_evidence.length > 0) {
-      response += `📰 **Key News & Events:**\n`;
-      const topEvidence = rag_evidence.slice(0, 3);
-      topEvidence.forEach((evidence, idx) => {
-        response += `${idx + 1}. **${evidence.title}** (${evidence.source})\n`;
-        if (evidence.summary) {
-          response += `   ${evidence.summary.substring(0, 150)}...\n`;
-        }
-        response += `   _Relevance: ${(evidence.relevance_score * 100).toFixed(0)}% | Quality: ${evidence.match_quality}_\n\n`;
+    // Price
+    const change = stock_summary.change_percent || 0;
+    const arrow = change >= 0 ? '📈' : '📉';
+
+    let priceStr = '';
+    if (stock_summary.formatted_price) {
+      priceStr = stock_summary.formatted_price;
+    } else if (typeof stock_summary.current_price === 'number') {
+      priceStr = `₹${stock_summary.current_price.toFixed(2)}`;
+    } else {
+      priceStr = String(stock_summary.current_price || 'N/A');
+    }
+
+    response += `${arrow} **Price:** ${priceStr} (${change >= 0 ? '+' : ''}${change.toFixed(2)}%)\n\n`;
+
+    // Sentiment
+    if (sentiment_aggregate && !('error' in (sentiment_aggregate as any))) {
+      const avgSent = sentiment_aggregate.avg_sentiment || 0;
+      const totalArt = sentiment_aggregate.total_articles !== undefined ? sentiment_aggregate.total_articles : 0;
+      const sentScore = avgSent * 100;
+
+      response += `📊 **Sentiment:** ${sentScore > 5 ? 'Positive' : sentScore < -5 ? 'Negative' : 'Neutral'} (${Math.abs(sentScore).toFixed(1)}%)\n`;
+      response += `Based on ${totalArt} articles.\n\n`;
+    } else {
+      response += `📊 **Sentiment:** Data Unavailable\n\n`;
+    }
+
+    // Recommendation - Prioritize insights recommendation over correlation recommendation
+    const insights = data.insights;
+    if (insights && insights.recommendation) {
+      const confidence = insights.confidence_level || 'moderate';
+      response += `💡 **Recommendation:** ${insights.recommendation} (Confidence: ${confidence.toLowerCase()})\n\n`;
+    } else if (correlation && correlation.recommendation) {
+      response += `💡 **Recommendation:** ${correlation.recommendation}\n\n`;
+    } else {
+      response += `💡 **Summary:** ${change > 0 ? 'Bullish' : 'Bearish'} trend observed.\n\n`;
+    }
+
+    // News Summary & Developments
+    const marketThemes = insights?.market_themes || [];
+
+    if (marketThemes && marketThemes.length > 0) {
+      response += `📰 **Key News & Developments:**\n`;
+      marketThemes.forEach((theme: string, i: number) => {
+        response += `${i + 1}. ${theme}\n`;
       });
+      response += `\n`;
     } else {
-      response += `📰 **Key News:** No significant news events found for this period.\n\n`;
-    }
+      // News - Merge RAG evidence and news_sentiment (Fallback)
+      const ragNews = (rag_evidence && Array.isArray(rag_evidence)) ? rag_evidence : [];
+      const standardNews = (news_sentiment && Array.isArray(news_sentiment)) ? news_sentiment : [];
 
-    // Correlation insight
-    if (correlation) {
-      response += `🔗 **Sentiment-Price Correlation:**\n`;
-      response += `${correlation.interpretation}\n`;
-      response += `**Recommendation:** ${correlation.recommendation}\n\n`;
-    }
+      // Combine and normalize both sources
+      const combinedNews = [
+        ...ragNews.map(n => ({
+          title: n.title,
+          source: n.source || 'RAG Evidence',
+          published_at: n.published_at,
+          url: n.url,
+          relevance_score: n.relevance_score || 50,
+          sentiment: n.sentiment
+        })),
+        ...standardNews.map(n => ({
+          title: n.title,
+          source: n.source || 'News',
+          published_at: n.published_at,
+          url: n.url,
+          relevance_score: (n as any).relevance_score || 50,
+          sentiment: n.sentiment || (n.sentiment_score !== undefined ? (n.sentiment_score > 0 ? 'positive' : n.sentiment_score < 0 ? 'negative' : 'neutral') : 'neutral')
+        }))
+      ];
 
-    // Summary
-    response += `💡 **Summary:** `;
-    if (Math.abs(change) < 1) {
-      response += `${symbol} showed minimal movement with low volatility (${stock_summary.volatility?.toFixed(2) || 'N/A'}%). `;
-    } else if (change > 5) {
-      response += `${symbol} experienced strong gains, `;
-    } else if (change < -5) {
-      response += `${symbol} saw significant decline, `;
-    } else {
-      response += `${symbol} showed moderate ${direction}ward movement, `;
-    }
+      // Deduplicate by title (case-insensitive)
+      const seenTitles = new Set();
+      const uniqueNews = combinedNews.filter(n => {
+        if (!n.title) return false;
+        const titleLower = n.title.toLowerCase().trim();
+        if (seenTitles.has(titleLower)) return false;
+        seenTitles.add(titleLower);
+        return true;
+      });
 
-    if (correlation && correlation.strength === 'VERY_STRONG') {
-      response += `with sentiment strongly aligned to price action.`;
-    } else if (correlation && correlation.strength === 'WEAK') {
-      response += `though sentiment showed weak correlation to price movements.`;
-    } else {
-      response += `with moderate fundamental support.`;
+      // Sort by relevance score desc, then date desc
+      uniqueNews.sort((a, b) => {
+        const relDiff = (b.relevance_score || 0) - (a.relevance_score || 0);
+        if (Math.abs(relDiff) > 0.1) return relDiff;
+        return new Date(b.published_at).getTime() - new Date(a.published_at).getTime();
+      });
+
+      if (uniqueNews.length > 0) {
+        response += `📰 **Key News & Developments:**\n`;
+        uniqueNews.slice(0, 5).forEach((n: any, i) => {
+          const source = n.source || 'News';
+          const title = n.title || 'Untitled Article';
+          const link = n.url ? `([link](${n.url}))` : '';
+          response += `${i + 1}. **[${source}]** ${title} ${link}\n`;
+        });
+      } else {
+        response += `*No specific news articles found for this period.*\n`;
+      }
     }
 
     return response;
   }
 
   /**
-   * Call MCP server to explain price change
+   * Format the comparison response
+   */
+  /**
+   * Format the comparison response
+   */
+  private formatComparisonResponse(data: ComparisonResult, symbols: string[]): string {
+    console.log('📊 Raw Comparison Data for Formatting:', JSON.stringify(data, null, 2));
+
+    if (!data || !data.comparison_summary) {
+      console.error('❌ Missing comparison_summary in response:', data);
+      return `⚠️ **Analysis Error**\n\nThe server returned an incomplete response. Please try again.\n\nRaw Data Received: ${JSON.stringify(data).substring(0, 100)}...`;
+    }
+
+    const { comparison_summary, stock_comparison, comparative_insights, recommendation_ranking } = data;
+
+    let response = `**Stock Comparison: ${symbols.join(' vs ')}**\n`;
+    response += `📅 **Period:** ${comparison_summary.period}\n\n`;
+
+    // Winner
+    if (comparison_summary.best_performer) {
+      response += `🏆 **Best Performer:** ${comparison_summary.best_performer}\n`;
+      response += `📉 **Lagging:** ${comparison_summary.worst_performer}\n\n`;
+    }
+
+    // Side by Side Table-like structure
+    response += `📊 **Head-to-Head:**\n\n`;
+
+    stock_comparison.forEach(stock => {
+      const change = stock.performance.change_percent;
+      const arrow = change >= 0 ? '🟢' : '🔴';
+      const sentArrow = stock.sentiment.score > 0 ? '😊' : stock.sentiment.score < 0 ? '😟' : '😐';
+
+      response += `**${stock.symbol}**\n`;
+      response += `• Price: ${arrow} ${change > 0 ? '+' : ''}${change.toFixed(2)}%\n`;
+      response += `• Sentiment: ${sentArrow} ${stock.sentiment.trend}\n`;
+      response += `• Strength: ${stock.key_strength}\n`;
+      response += `• Weakness: ${stock.key_weakness}\n\n`;
+    });
+
+    // Insights
+    if (comparative_insights) {
+      response += `💡 **Insights:**\n`;
+      const pfLeader = comparative_insights.performance_leader;
+      response += `• **${pfLeader.symbol}** leads in price due to ${pfLeader.reason.toLowerCase()}.\n`;
+      response += `• **${comparative_insights.sentiment_leader.symbol}** has the strongest market sentiment.\n\n`;
+    }
+
+    // Recommendations
+    if (recommendation_ranking && recommendation_ranking.length > 0) {
+      response += `📝 **Recommendations:**\n`;
+      recommendation_ranking.forEach(rec => {
+        const icon = rec.rating === 'BUY' ? '✅' : rec.rating === 'SELL' ? '❌' : '✋';
+        response += `${icon} **${rec.symbol}: ${rec.rating}** - ${rec.rationale}\n`;
+      });
+    }
+
+    return response;
+  }
+
+  /**
+   * Call MCP server to explain price change (Single Stock)
    */
   async explainPriceChange(
     symbol: string,
     startDate: string,
     endDate: string
   ): Promise<PriceExplanation> {
-    try {
-      const response = await fetch(`${this.baseURL}/call`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': this.apiKey,
+    // Reuse existing logic but with better error handling
+    console.log('🔍 MCP Single Analysis:', symbol);
+
+    const response = await fetch(`${this.baseURL}/call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': this.apiKey },
+      body: JSON.stringify({
+        name: 'explain_price_change', // This orchestrator tool calls analyze_stock_enhanced internally
+        arguments: { symbol, start_date: startDate, end_date: endDate },
+      }),
+    });
+
+    if (!response.ok) throw new Error(`MCP Error: ${response.statusText}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error);
+
+    return data.result;
+  }
+
+  /**
+   * Call MCP server to compare stocks
+   */
+  async compareStocks(
+    symbols: string[],
+    period: string = '1m'
+  ): Promise<ComparisonResult> {
+    console.log('🔍 MCP Comparison:', symbols);
+
+    const response = await fetch(`${this.baseURL}/call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Key': this.apiKey },
+      body: JSON.stringify({
+        name: 'compare_stocks',
+        arguments: {
+          symbols: symbols,
+          period: this.getMCPPeriod(period) // Convert '30days' to '1m'
         },
-        body: JSON.stringify({
-          name: 'explain_price_change',
-          arguments: {
-            symbol,
-            start_date: startDate,
-            end_date: endDate,
-          },
-        }),
-      });
+      }),
+    });
 
-      if (!response.ok) {
-        throw new Error(`MCP API error: ${response.status} ${response.statusText}`);
-      }
+    if (!response.ok) throw new Error(`MCP Error: ${response.statusText}`);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error);
 
-      const data = await response.json();
-
-      if (!data.success) {
-        throw new Error(data.error || 'MCP request failed');
-      }
-
-      return data.result;
-    } catch (error) {
-      console.error('Error calling MCP API:', error);
-      throw error;
+    // Handle double-wrapped response from enhanced tools
+    // Server returns: { success: true, result: { success: true, data: { ... } } }
+    if (data.result && data.result.data) {
+      return data.result.data as ComparisonResult;
     }
+
+    return data.result as ComparisonResult;
   }
 
   /**
@@ -365,67 +561,61 @@ export class MCPAPI {
    */
   async processQuery(query: string): Promise<MCPMessage> {
     try {
-      // Parse the query
       const parsed = this.parseQuery(query);
 
-      if (!parsed.symbol) {
+      if (parsed.symbols.length === 0) {
         return {
           role: 'assistant',
-          content: `I couldn't identify a stock symbol in your query. Please mention a stock name or symbol.\n\n**Try these:**\n- "TCS news last month"\n- "Tell me about HDFC Bank"\n- "What's happening with Reliance?"\n- "Give me Infosys summary"\n- "Show me ICICI Bank updates"\n\n**Supported stocks:** HDFCBANK, TCS, INFY, RELIANCE, ICICIBANK, WIPRO, AXISBANK, KOTAKBANK`,
+          content: `I couldn't identify any stock symbols. Try "Analyze TCS" or "Compare HDFC and ICICI".`,
           timestamp: new Date().toISOString(),
         };
       }
 
-      // Action is now auto-determined, no need to check for 'unknown'
-      // Get date range
       const dateRange = this.getDateRange(parsed.period || '30days');
 
-      console.log(`📅 Query parsed: Symbol=${parsed.symbol}, Period=${parsed.period}, DateRange=${dateRange.start_date} to ${dateRange.end_date}`);
+      let content = '';
+      let metadata: any = {};
 
-      // Call MCP API
-      const explanation = await this.explainPriceChange(
-        parsed.symbol,
-        dateRange.start_date,
-        dateRange.end_date
-      );
-
-      // Format response
-      const content = this.formatResponse(explanation, query, dateRange);
+      if (parsed.action === 'compare') {
+        // Perform Comparison
+        const result = await this.compareStocks(parsed.symbols, parsed.period || '30days');
+        content = this.formatComparisonResponse(result, parsed.symbols);
+        metadata = { symbols: parsed.symbols, comparison_data: result };
+      } else {
+        // Default to Single Analysis (taking first symbol)
+        const symbol = parsed.symbols[0];
+        const explanation = await this.explainPriceChange(symbol, dateRange.start_date, dateRange.end_date);
+        content = this.formatResponse(explanation, query, dateRange);
+        metadata = {
+          symbol: symbol,
+          price_change: explanation.stock_summary?.change_percent,
+          sentiment_score: explanation.sentiment_aggregate?.avg_sentiment
+        };
+      }
 
       return {
         role: 'assistant',
         content,
         timestamp: new Date().toISOString(),
-        metadata: {
-          symbol: explanation.symbol,
-          tool_status: explanation.tool_status,
-          price_change: explanation.stock_summary.change_percent,
-          sentiment_score: explanation.sentiment_aggregate?.avg_sentiment || 0,
-          correlation: explanation.correlation?.correlation_coefficient || 0,
-        },
+        metadata
       };
+
     } catch (error) {
       console.error('Error processing query:', error);
       return {
         role: 'assistant',
-        content: `I encountered an error while analyzing that query. Please make sure:\n\n1. The MCP server is running (http://localhost:8002)\n2. The backend API is running (http://localhost:8000)\n3. The stock symbol is valid\n\n**Error:** ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: `❌ **Error:** ${error instanceof Error ? error.message : 'Unknown error occcurred during analysis.'}`,
         timestamp: new Date().toISOString(),
       };
     }
   }
 
-  /**
-   * Health check
-   */
   async healthCheck(): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseURL}/health`);
       return response.ok;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   }
 }
 
-// Create singleton instance
 export const mcpAPI = new MCPAPI();

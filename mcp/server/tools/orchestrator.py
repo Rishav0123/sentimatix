@@ -12,6 +12,7 @@ from server.tools.stock_tools import get_stock_summary, get_historical_prices
 from server.tools.news_tools import get_news_sentiment, get_sentiment_aggregate
 from server.tools.rag_tools import get_rag_evidence
 from server.tools.correlation import calculate_sentiment_price_correlation
+from server.tools.enhanced_analysis import enhanced_engine
 
 logger = logging.getLogger(__name__)
 
@@ -57,45 +58,25 @@ async def explain_price_change(
         
         # 4. Get RAG evidence (semantic search for explanations)
         logger.info("Step 4/5: Performing RAG semantic search...")
-        query_text = f"reasons for {symbol} price change drop decline fall movement"
+        # Create more specific query based on the symbol and price movement
+        price_direction = "increase" if stock_summary.get("change_percent", 0) >= 0 else "decrease"
+        query_text = f"{symbol} stock price {price_direction} movement analysis reasons factors earnings news developments"
         rag_evidence = get_rag_evidence(symbol, start_date, end_date, query_text, top_k=6)
         
-        # 5. Calculate correlation between sentiment and price using daily aggregated sentiment
-        logger.info("Step 5/5: Calculating correlation with daily sentiment aggregation...")
-        correlation_result = None
-        try:
-            if historical_prices and len(historical_prices) > 2 and news_sentiment:
-                # Build date -> avg sentiment map
-                sentiment_by_date = {}
-                for item in news_sentiment:
-                    date_key = item.get("published_at", "")[:10]
-                    if date_key:
-                        sentiment_by_date.setdefault(date_key, []).append(item.get("sentiment_score", 0.0))
-                daily_sentiment = {d: (sum(vals) / len(vals)) for d, vals in sentiment_by_date.items() if vals}
-                
-                # Align on price dates
-                price_changes = []
-                sentiment_series = []
-                for p in historical_prices:
-                    d = p.get("date")
-                    if not d:
-                        continue
-                    sc = daily_sentiment.get(d)
-                    if sc is None:
-                        continue  # only consider days with sentiment data
-                    price_changes.append(p.get("change_percent", 0))
-                    sentiment_series.append(sc)
-                if len(price_changes) >= 3 and len(sentiment_series) >= 3:
-                    correlation_result = calculate_sentiment_price_correlation(
-                        price_changes,
-                        sentiment_series,
-                        symbol
-                    )
-        except Exception as e:
-            logger.warning(f"Could not calculate correlation: {e}")
-            correlation_result = {"error": str(e)}
+        # 5. Call Enhanced Analysis for high-quality insights
+        logger.info("Step 5/5: Generating enhanced insights...")
+        enhanced_result = await enhanced_engine.analyze_stock_enhanced(
+            symbol=symbol,
+            start_date=start_date,
+            end_date=end_date,
+            analysis_type="detailed"
+        )
         
-        # Aggregate all results
+        enhanced_data = {}
+        if enhanced_result.get("success"):
+            enhanced_data = enhanced_result.get("data", {})
+        
+        # Aggregate all results, preserving backward compatibility but adding new insights
         result = {
             "symbol": symbol,
             "period": {
@@ -103,19 +84,22 @@ async def explain_price_change(
                 "end_date": end_date,
                 "days": period_days
             },
-            "stock_summary": stock_summary,
-            "historical_prices": historical_prices[:14],  # Last 2 weeks for brevity
+            "stock_summary": enhanced_data.get("stock_info", stock_summary), # Prefer enhanced if available
+            "performance": enhanced_data.get("performance"),
+            "historical_prices": historical_prices[:14],  # For backwards compatibility and charts
             "news_sentiment": news_sentiment,
-            "sentiment_aggregate": sentiment_aggregate,
-            "rag_evidence": rag_evidence,
-            "correlation": correlation_result,
+            "sentiment_aggregate": enhanced_data.get("sentiment_summary", sentiment_aggregate),
+            "rag_evidence": enhanced_data.get("key_events", rag_evidence),
+            "correlation": enhanced_data.get("correlation"),
+            "insights": enhanced_data.get("insights"), # New summarized insights
             "timestamp": datetime.now().isoformat(),
             "tool_status": {
                 "stock_summary": "ok" if "error" not in stock_summary else "error",
                 "historical_prices": "ok" if historical_prices and "error" not in historical_prices[0] else "error",
                 "news_sentiment": "ok" if news_sentiment and "error" not in news_sentiment[0] else "error",
-                "rag_evidence": "ok" if rag_evidence and "error" not in rag_evidence[0] else "error",
-                "correlation": "ok" if correlation_result and "error" not in correlation_result else "error"
+                "sentiment_aggregate": "ok" if "error" not in sentiment_aggregate else "error",
+                "rag_evidence": "ok" if enhanced_data.get("key_events") else "error",
+                "enhanced_insights": "ok" if enhanced_data.get("insights") else "error"
             }
         }
         

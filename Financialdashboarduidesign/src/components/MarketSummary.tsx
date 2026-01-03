@@ -1,79 +1,140 @@
-import { Send } from "lucide-react";
+import { useState, useEffect } from "react";
 
-const newsItems = [
-  {
-    title: "Sensex, Nifty 50 and Nifty Bank Slip as Expiry Volatility Hits",
-    description:
-      "India's benchmark indices fell, with Sensex down 0.56% by 0.60% and Nifty Bank lower by 0.44%. Expiry day volatility and weak global sentiment, despite a recent US Fed rate cut, drove broad-based profit-booking, especially in pharma, financials and IT.",
-  },
-  {
-    title: "PSU Banks Outperform in Subdued Session",
-    description:
-      "Public sector banks bucked the downtrend, showing resilience as most indices slipped. Strong quarterly results from select lenders and hopes of policy support lifted sentiment in the sector.",
-  },
-  {
-    title: "L&T Surges to Record on Robust Earnings",
-    description:
-      "Larsen & Toubro (L&T) rose 2% to all-time highs after reporting a strong Q2, driven by a healthy order book and positive broker commentary. Engineering and capital goods stocks rallied.",
-  },
-];
+interface MarketSummaryItem {
+  title: string;
+  description: string;
+  category: string;
+  sentiment: string;
+  impact_score: number;
+  source: string;
+  published_at: string;
+  related_stock: string;
+}
+
+interface MarketSummaryData {
+  summary_items: MarketSummaryItem[];
+  market_sentiment: string;
+  insights: string[];
+  last_updated: string;
+  total_news_analyzed: number;
+}
 
 export function MarketSummary() {
+  const [summaryData, setSummaryData] = useState<MarketSummaryData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // API configuration
+  const API_BASE_URL = 'http://localhost:8000';
+
+  const fetchMarketSummary = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('📊 Fetching market summary from API...');
+
+      const response = await fetch(`${API_BASE_URL}/api/market-summary`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data: MarketSummaryData = await response.json();
+      setSummaryData(data);
+
+      console.log(`✅ Successfully fetched market summary with ${data.summary_items.length} items`);
+
+    } catch (err) {
+      console.error('❌ Error fetching market summary:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch market summary');
+
+      // Fallback to mock data
+      setSummaryData({
+        summary_items: [
+          {
+            title: "Market Update",
+            description: "Markets showing mixed signals today with technology stocks leading gains while banking sector faces pressure.",
+            category: "Market Update",
+            sentiment: "neutral",
+            impact_score: 50,
+            source: "Market Analysis",
+            published_at: new Date().toISOString(),
+            related_stock: "NIFTY"
+          }
+        ],
+        market_sentiment: "neutral",
+        insights: ["Mixed trading session"],
+        last_updated: new Date().toISOString(),
+        total_news_analyzed: 1
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMarketSummary();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="bg-[#111827] rounded-xl p-6 border border-gray-800">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[#E5E7EB] text-xl">Market Summary</h3>
+          <div className="h-3 bg-gray-700 rounded w-24 animate-pulse"></div>
+        </div>
+        <div className="space-y-4">
+          <div className="pb-4 border-b border-gray-800 animate-pulse">
+            <div className="h-4 bg-gray-700 rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-gray-800 rounded w-full mb-1"></div>
+            <div className="h-3 bg-gray-800 rounded w-2/3"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-[#111827] rounded-xl p-6 border border-gray-800">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[#E5E7EB] text-xl">Market Summary</h3>
-        <p className="text-[#9CA3AF] text-xs">Updated 44 minutes ago</p>
+        <div className="flex items-center gap-3">
+          <h3 className="text-[#E5E7EB] text-xl">Market Summary</h3>
+          {summaryData && (
+            <span className="text-sm px-2 py-1 rounded text-blue-400 bg-blue-400/10">
+              {summaryData.market_sentiment.charAt(0).toUpperCase() + summaryData.market_sentiment.slice(1)}
+            </span>
+          )}
+        </div>
+        <p className="text-gray-300 text-xs">
+          {summaryData ? 'Recently updated' : 'Loading...'}
+        </p>
       </div>
+
+      {error && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 mb-4">
+          <p className="text-yellow-400 text-sm">⚠️ {error}</p>
+        </div>
+      )}
 
       <div className="space-y-4">
-        {newsItems.map((item, index) => (
+        {summaryData?.summary_items.map((item, index) => (
           <div key={index} className="pb-4 border-b border-gray-800 last:border-0 last:pb-0">
-            <h4 className="text-[#E5E7EB] mb-2">{item.title}</h4>
-            <p className="text-[#9CA3AF] text-sm leading-relaxed">{item.description}</p>
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <h4 className="text-[#E5E7EB] flex-1">{item.title}</h4>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-300 text-xs">{item.category}</span>
+              </div>
+            </div>
+            <p className="text-gray-300 text-sm leading-relaxed">{item.description}</p>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-gray-300 text-xs">{item.source}</span>
+              {item.related_stock && (
+                <span className="text-[#3B82F6] text-xs">{item.related_stock}</span>
+              )}
+            </div>
           </div>
         ))}
-      </div>
-
-      {/* AI Chat Input */}
-      <div className="mt-6 pt-6 border-t border-gray-800">
-        <div className="relative">
-          <input
-            type="text"
-            placeholder="Ask any question about finance"
-            className="w-full bg-[#0B1120] border border-gray-800 rounded-lg pl-4 pr-24 py-3 text-[#E5E7EB] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#3B82F6] transition-colors"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
-            <button className="w-8 h-8 rounded hover:bg-gray-800 flex items-center justify-center transition-colors">
-              <span className="text-[#9CA3AF] text-sm">🔍</span>
-            </button>
-            <button className="w-8 h-8 rounded hover:bg-gray-800 flex items-center justify-center transition-colors">
-              <span className="text-[#9CA3AF] text-sm">📎</span>
-            </button>
-            <button className="w-8 h-8 rounded hover:bg-gray-800 flex items-center justify-center transition-colors">
-              <span className="text-[#9CA3AF] text-sm">📍</span>
-            </button>
-            <button className="w-8 h-8 bg-[#3B82F6] hover:bg-[#3B82F6]/90 rounded flex items-center justify-center transition-colors">
-              <Send className="w-4 h-4 text-white" />
-            </button>
-          </div>
-        </div>
-
-        {/* Additional insights */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button className="px-3 py-1.5 bg-[#0B1120] border border-gray-800 rounded-lg text-[#9CA3AF] text-xs hover:border-gray-700 transition-colors">
-            🇮🇳 Indian Markets
-          </button>
-          <button className="px-3 py-1.5 bg-[#0B1120] border border-gray-800 rounded-lg text-[#9CA3AF] text-xs hover:border-gray-700 transition-colors">
-            Stocks -8%
-          </button>
-          <button className="px-3 py-1.5 bg-[#0B1120] border border-gray-800 rounded-lg text-[#9CA3AF] text-xs hover:border-gray-700 transition-colors">
-            Breakdowns
-          </button>
-          <button className="px-3 py-1.5 bg-[#0B1120] border border-gray-800 rounded-lg text-[#9CA3AF] text-xs hover:border-gray-700 transition-colors">
-            Outlook
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-from .check_existing_news import check_existing_news
+from utilities.check_existing_news import check_existing_news
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import os

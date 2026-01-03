@@ -68,7 +68,7 @@ export function StockSelector({
               <span className="text-[#E5E7EB] text-sm">{ticker}</span>
               <button
                 onClick={() => onStockRemove(ticker)}
-                className="text-[#9CA3AF] hover:text-red-500 transition-colors"
+                className="text-[#9CA3AF] hover:text-red-500 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>

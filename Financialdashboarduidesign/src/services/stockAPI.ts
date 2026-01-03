@@ -4,7 +4,7 @@ import { Stock } from '../components/StockTable';
 export class StockAPI {
   private baseURL: string;
 
-  constructor(baseURL: string = import.meta.env.VITE_API_URL || 'http://localhost:3001/api') {
+  constructor(baseURL: string = import.meta.env.VITE_API_URL || 'http://localhost:8000') {
     this.baseURL = baseURL;
   }
 

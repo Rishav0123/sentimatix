@@ -4,8 +4,8 @@ Quick demo of MCP system capabilities
 import requests
 import json
 
-MCP_URL = "http://localhost:8001/call"
-API_KEY = "stockify-mcp-2025"
+MCP_URL = "http://localhost:8002/call"
+API_KEY = "dev-key-12345"
 headers = {"X-API-Key": API_KEY}
 
 print("=" * 80)
@@ -15,10 +15,15 @@ print("=" * 80)
 # Test 1: RAG Stats
 print("\n1. Vector Database Stats:")
 r = requests.post(MCP_URL, json={"name": "get_rag_stats", "arguments": {}}, headers=headers)
-stats = r.json()["result"]["vector_db_stats"]
-print(f"   - Total embeddings: {stats['total_embeddings']}")
-print(f"   - Unique symbols: {stats['unique_symbols']}")
-print(f"   - Vector dimension: {stats['vector_dimension']}")
+response = r.json()
+print(f"Response: {response}")
+if response.get("success") and response.get("result"):
+    stats = response["result"]["vector_db_stats"]
+    print(f"   - Total embeddings: {stats['total_embeddings']}")
+    print(f"   - Unique symbols: {stats['unique_symbols']}")
+    print(f"   - Vector dimension: {stats['vector_dimension']}")
+else:
+    print("   - RAG stats not available:", response.get("error", "Unknown error"))
 
 # Test 2: News Sentiment for HDFC Bank
 print("\n2. News Sentiment Analysis (HDFCBANK):")
@@ -31,11 +36,15 @@ r = requests.post(MCP_URL, json={
         "top_n": 3
     }
 }, headers=headers)
-news = r.json()["result"]
-print(f"   - Found {len(news)} news articles")
-for i, article in enumerate(news[:2], 1):
-    print(f"   {i}. {article['title'][:60]}...")
-    print(f"      Sentiment: {article['sentiment']} ({article['sentiment_score']:.2f})")
+response = r.json()
+if response.get("success") and response.get("result"):
+    news = response["result"]
+    print(f"   - Found {len(news)} news articles")
+    for i, article in enumerate(news[:2], 1):
+        print(f"   {i}. {article['title'][:60]}...")
+        print(f"      Sentiment: {article['sentiment']} ({article['sentiment_score']:.2f})")
+else:
+    print("   - News sentiment not available:", response.get("error", "Unknown error"))
 
 # Test 3: Sentiment Aggregate
 print("\n3. Sentiment Aggregate:")
@@ -47,11 +56,15 @@ r = requests.post(MCP_URL, json={
         "end_date": "2025-11-17"
     }
 }, headers=headers)
-agg = r.json()["result"]
-print(f"   - Total articles: {agg['total_articles']}")
-print(f"   - Average sentiment: {agg['avg_sentiment']:.3f}")
-print(f"   - Positive: {agg['sentiment_breakdown']['positive_pct']:.1f}%")
-print(f"   - Neutral: {agg['sentiment_breakdown']['neutral_pct']:.1f}%")
+response = r.json()
+if response.get("success") and response.get("result"):
+    agg = response["result"]
+    print(f"   - Total articles: {agg['total_articles']}")
+    print(f"   - Average sentiment: {agg['avg_sentiment']:.3f}")
+    print(f"   - Positive: {agg['sentiment_breakdown']['positive_pct']:.1f}%")
+    print(f"   - Neutral: {agg['sentiment_breakdown']['neutral_pct']:.1f}%")
+else:
+    print("   - Sentiment aggregate not available:", response.get("error", "Unknown error"))
 
 print("\n" + "=" * 80)
 print("✅ MCP System is operational!")

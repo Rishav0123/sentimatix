@@ -43,16 +43,16 @@ export function InsightsDashboard({ onStockSelect }: InsightsDashboardProps) {
   });
 
   // API configuration - update this with your backend URL
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const API_BASE_URL = 'http://localhost:8000';
 
   // Function to fetch stocks from your FastAPI backend
   const fetchStocksFromAPI = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log(`🚀 Fetching stocks from: ${API_BASE_URL}/api/stocks?sentiment_days=7`);
-      
+
       const response = await fetch(`${API_BASE_URL}/api/stocks?sentiment_days=7`, {
         method: 'GET',
         headers: {
@@ -85,12 +85,12 @@ export function InsightsDashboard({ onStockSelect }: InsightsDashboardProps) {
 
       setStocks(transformedStocks);
       console.log(`✅ Successfully processed ${transformedStocks.length} stocks`);
-      
+
     } catch (err) {
       console.error('❌ Error fetching stocks from API:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to fetch stock data';
       setError(`API Error: ${errorMessage}`);
-      
+
       // Don't fall back to mock data - keep stocks array empty
     } finally {
       setLoading(false);
@@ -109,20 +109,40 @@ export function InsightsDashboard({ onStockSelect }: InsightsDashboardProps) {
 
   // Filter stocks based on current filters
   const filteredStocks = stocks.filter((stock) => {
-    if (filters.search && !stock.name.toLowerCase().includes(filters.search.toLowerCase()) && 
-        !stock.ticker.toLowerCase().includes(filters.search.toLowerCase())) {
+    // Search filter
+    if (filters.search &&
+      !stock.name.toLowerCase().includes(filters.search.toLowerCase()) &&
+      !stock.ticker.toLowerCase().includes(filters.search.toLowerCase())) {
       return false;
     }
+
+    // Sector filter
     if (filters.sector !== "All Sectors" && stock.sector !== filters.sector) {
       return false;
     }
+
+    // Index filter
     if (filters.index !== "All Indices" && stock.index !== filters.index) {
       return false;
     }
+
+    // Country filter
     if (filters.country !== "All Countries" && stock.country !== filters.country) {
       return false;
     }
-    // Add other filter logic as needed
+
+    // Sentiment filter
+    if (filters.sentiment !== "All") {
+      if (filters.sentiment === "Positive" && stock.sentiment <= 50) return false;
+      if (filters.sentiment === "Neutral" && (stock.sentiment < 45 || stock.sentiment > 55)) return false;
+      if (filters.sentiment === "Negative" && stock.sentiment >= 50) return false;
+    }
+
+    // Market cap filter (placeholder - would need market cap data from API)
+    if (filters.marketCap !== "All") {
+      // TODO: Implement market cap filtering when data is available
+    }
+
     return true;
   });
 
@@ -146,20 +166,20 @@ export function InsightsDashboard({ onStockSelect }: InsightsDashboardProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-[#E5E7EB] text-2xl mb-1">Stock Insights</h2>
-          <p className="text-[#9CA3AF] text-sm">
+          <p className="text-gray-300 text-sm">
             Real-time analysis with sentiment data ({stocks.length} stocks loaded)
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={handleRefresh}
             className="flex items-center gap-2 px-4 py-2 bg-[#0B1120] border border-gray-800 rounded-lg text-[#9CA3AF] hover:text-[#E5E7EB] hover:border-gray-700 transition-colors"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
           </button>
-          
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#0B1120] border border-gray-800 rounded-lg text-[#9CA3AF] hover:text-[#E5E7EB] hover:border-gray-700 transition-colors">
+
+          <button className="flex items-center gap-2 px-4 py-2 bg-[#0B1120] border border-gray-800 rounded-lg text-[#9CA3AF] hover:text-[#E5E7EB] hover:border-gray-700 transition-colors cursor-pointer">
             <Download className="w-4 h-4" />
             <span>Export</span>
           </button>
@@ -171,7 +191,7 @@ export function InsightsDashboard({ onStockSelect }: InsightsDashboardProps) {
         <div className="bg-red-900/20 border border-red-800 rounded-lg p-4">
           <div className="text-red-300 font-medium">Connection Error</div>
           <div className="text-red-400 text-sm mt-1">{error}</div>
-          <button 
+          <button
             onClick={handleRefresh}
             className="mt-3 px-4 py-2 bg-red-800 hover:bg-red-700 text-white rounded-lg text-sm transition-colors"
           >
@@ -184,14 +204,14 @@ export function InsightsDashboard({ onStockSelect }: InsightsDashboardProps) {
       <FilterBar filters={filters} onFiltersChange={setFilters} />
 
       {/* Stock Table */}
-      <StockTable 
-        stocks={filteredStocks} 
-        onStockSelect={onStockSelect}
+      <StockTable
+        stocks={filteredStocks}
+        onStockClick={onStockSelect}
       />
 
       {/* Show message if no stocks available */}
       {!loading && !error && stocks.length === 0 && (
-        <div className="text-center py-12 text-[#9CA3AF]">
+        <div className="text-center py-12 text-gray-300">
           <p>No stock data available. Please check your API connection.</p>
         </div>
       )}

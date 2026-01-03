@@ -32,8 +32,30 @@ export function StandoutCard({
   onClick,
 }: StandoutCardProps) {
   const isPositive = change >= 0;
-  const maxValue = Math.max(...chartData);
-  const minValue = Math.min(...chartData);
+  
+  // Safe chart data processing
+  const safeChartData = Array.isArray(chartData) && chartData.length > 0 ? chartData : [100, 100];
+  const maxValue = Math.max(...safeChartData);
+  const minValue = Math.min(...safeChartData);
+  const range = maxValue - minValue;
+  
+  // Prevent division by zero
+  const normalizedData = range === 0 
+    ? safeChartData.map(() => 64) // Middle of 128px height
+    : safeChartData.map(value => 128 - ((value - minValue) / range) * 128);
+
+  // Generate safe SVG path
+  const generatePath = (data: number[], closePath = false) => {
+    if (data.length === 0) return "M 0 64 L 100 64";
+    
+    const width = 100; // Use percentage width
+    const points = data.map((y, i) => {
+      const x = (i / (data.length - 1)) * width;
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+    
+    return closePath ? `${points} L ${width} 128 L 0 128 Z` : points;
+  };
 
   return (
     <div
@@ -68,7 +90,7 @@ export function StandoutCard({
 
       {/* Chart */}
       <div className="relative h-32 mb-4">
-        <svg className="w-full h-full" preserveAspectRatio="none">
+        <svg className="w-full h-full" viewBox="0 0 100 128" preserveAspectRatio="none">
           <defs>
             <linearGradient id={`gradient-${ticker}`} x1="0%" y1="0%" x2="0%" y2="100%">
               <stop
@@ -90,35 +112,21 @@ export function StandoutCard({
           
           {/* Area */}
           <path
-            d={`M 0 ${128 - ((chartData[0] - minValue) / (maxValue - minValue)) * 128} ${chartData
-              .map(
-                (value, i) =>
-                  `L ${(i / (chartData.length - 1)) * 100}% ${
-                    128 - ((value - minValue) / (maxValue - minValue)) * 128
-                  }`
-              )
-              .join(" ")} L 100% 128 L 0 128 Z`}
+            d={generatePath(normalizedData, true)}
             fill={`url(#gradient-${ticker})`}
           />
           
           {/* Line */}
           <path
-            d={`M 0 ${128 - ((chartData[0] - minValue) / (maxValue - minValue)) * 128} ${chartData
-              .map(
-                (value, i) =>
-                  `L ${(i / (chartData.length - 1)) * 100}% ${
-                    128 - ((value - minValue) / (maxValue - minValue)) * 128
-                  }`
-              )
-              .join(" ")}`}
+            d={generatePath(normalizedData, false)}
             fill="none"
             stroke={isPositive ? "#10B981" : "#EF4444"}
-            strokeWidth="2"
+            strokeWidth="0.5"
           />
         </svg>
         
         <p className="absolute bottom-0 right-0 text-[#9CA3AF] text-xs">
-          Prev close: {chartData[0].toFixed(2)}
+          Prev: {safeChartData[0]?.toFixed(2) || 'N/A'}
         </p>
       </div>
 

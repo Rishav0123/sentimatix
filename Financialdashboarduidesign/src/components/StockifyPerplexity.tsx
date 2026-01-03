@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Sparkles, ArrowUpRight, Menu, Share2, ThumbsUp, ThumbsDown, Copy, 
-  MoreVertical, Mic, Image as ImageIcon, Paperclip, ChevronDown
+  MoreVertical, Mic, Image as ImageIcon, Paperclip
 } from 'lucide-react';
 import { mcpAPI } from '../services/mcpAPI';
 
@@ -105,18 +105,18 @@ const ChatMessage = ({ msg }: { msg: ChatMsg }) => {
         <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <button 
             onClick={handleCopy}
-            className="p-2 hover:bg-[#1f1f1f] rounded-full transition-colors"
+            className="p-2 hover:bg-[#1f1f1f] rounded-full transition-colors cursor-pointer"
             title={copied ? "Copied!" : "Copy"}
           >
             <Copy size={16} className={copied ? "text-green-400" : "text-slate-400"} />
           </button>
-          <button className="p-2 hover:bg-[#1f1f1f] rounded-full transition-colors" title="Good response">
+          <button className="p-2 hover:bg-[#1f1f1f] rounded-full transition-colors cursor-pointer" title="Good response">
             <ThumbsUp size={16} className="text-slate-400" />
           </button>
-          <button className="p-2 hover:bg-[#1f1f1f] rounded-full transition-colors" title="Bad response">
+          <button className="p-2 hover:bg-[#1f1f1f] rounded-full transition-colors cursor-pointer" title="Bad response">
             <ThumbsDown size={16} className="text-slate-400" />
           </button>
-          <button className="p-2 hover:bg-[#1f1f1f] rounded-full transition-colors" title="More options">
+          <button className="p-2 hover:bg-[#1f1f1f] rounded-full transition-colors cursor-pointer" title="More options">
             <MoreVertical size={16} className="text-slate-400" />
           </button>
         </div>
@@ -132,8 +132,39 @@ export default function StockifyPerplexity() {
   const [chatHistory, setChatHistory] = useState<ChatMsg[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStepText, setCurrentStepText] = useState('');
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Progress steps based on MCP server logs
+  const progressSteps = [
+    { step: 1, text: "Orchestrating price change explanation..." },
+    { step: 2, text: "Fetching stock summary..." },
+    { step: 3, text: "Fetching historical prices..." },
+    { step: 4, text: "Fetching news and sentiment..." },
+    { step: 5, text: "Performing RAG semantic search..." },
+    { step: 6, text: "Calculating correlation with sentiment..." },
+  ];
+
+  // Simulate progress steps with more realistic timing
+  const simulateProgress = () => {
+    setCurrentStep(0);
+    setCurrentStepText('');
+    
+    // Step timings based on actual server logs (some steps take longer)
+    const stepTimings = [500, 1000, 1500, 2000, 1200, 800]; // milliseconds
+    let totalTime = 0;
+    
+    progressSteps.forEach((stepInfo, index) => {
+      totalTime += stepTimings[index];
+      setTimeout(() => {
+        setCurrentStep(stepInfo.step);
+        setCurrentStepText(stepInfo.text);
+      }, totalTime);
+    });
+  };
 
   // Suggestions for empty state
   const suggestions: Suggestion[] = [
@@ -171,6 +202,9 @@ export default function StockifyPerplexity() {
     };
     setChatHistory(prev => [...prev, userMsg]);
     setIsSearching(true);
+    
+    // Start progress simulation
+    simulateProgress();
 
     try {
       const mcpResponse = await mcpAPI.processQuery(query);
@@ -189,16 +223,53 @@ export default function StockifyPerplexity() {
       const errorMsg: ChatMsg = {
         id: Date.now() + 1,
         type: 'bot',
-        text: `I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please make sure the MCP server is running on port 8001.`,
+        text: `I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please make sure the MCP server is running on port 8002.`,
         timestamp: new Date().toISOString()
       };
       setChatHistory(prev => [...prev, errorMsg]);
     } finally {
       setIsSearching(false);
+      setCurrentStep(0);
+      setCurrentStepText('');
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleShare = async () => {
+    const shareData = {
+      title: 'Stockify AI Chat',
+      text: 'Check out this AI-powered stock analysis chat',
+      url: window.location.href,
+    };
+
+    try {
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+      } else {
+        // Fallback: copy URL to clipboard
+        await navigator.clipboard.writeText(window.location.href);
+        // Create a temporary notification
+        const notification = document.createElement('div');
+        notification.textContent = 'Link copied to clipboard!';
+        notification.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity';
+        document.body.appendChild(notification);
+        setTimeout(() => {
+          notification.style.opacity = '0';
+          setTimeout(() => document.body.removeChild(notification), 300);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      // Fallback for any errors
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+      } catch (clipboardError) {
+        alert('Unable to share or copy link. Please copy the URL manually.');
+      }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSearch();
@@ -208,29 +279,76 @@ export default function StockifyPerplexity() {
   return (
     <div className="h-screen w-full flex flex-col" style={{ backgroundColor: '#131314', color: 'white' }}>
       
+      {/* Mobile Sidebar Overlay */}
+      {showMobileSidebar && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileSidebar(false)} />
+          <div className="absolute left-0 top-0 h-full w-64 bg-[#111827] border-r border-gray-800">
+            {/* Sidebar Content */}
+            <div className="flex-1 py-6">
+              {[
+                { icon: '🏠', label: 'Dashboard', id: 'dashboard' },
+                { icon: '✨', label: 'AI Search', id: 'ai', active: true },
+                { icon: '📊', label: 'Insights', id: 'insights' },
+                { icon: '📰', label: 'News Feed', id: 'news' },
+                { icon: '🔄', label: 'Compare', id: 'compare' },
+                { icon: '🔧', label: 'API Access', id: 'api' },
+                { icon: '⚙️', label: 'Settings', id: 'settings' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    if (item.id === 'dashboard') {
+                      window.location.href = '/';
+                    }
+                    setShowMobileSidebar(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-6 py-3 transition-all cursor-pointer ${
+                    item.active
+                      ? "text-[#3B82F6] bg-[#3B82F6]/10"
+                      : "text-[#9CA3AF] hover:text-[#E5E7EB] hover:bg-[#0B1120]/50"
+                  }`}
+                >
+                  <span className="text-lg">{item.icon}</span>
+                  <span className="text-sm">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Top Bar */}
       <header className="border-b px-4 py-3 flex items-center justify-between" style={{ borderColor: '#2d2d2d' }}>
         <div className="flex items-center gap-3">
-          <button className="p-2 hover:bg-[#1f1f1f] rounded-lg transition-colors lg:hidden">
+          <button 
+            onClick={() => setShowMobileSidebar(true)}
+            className="p-2 hover:bg-[#1f1f1f] rounded-lg transition-colors lg:hidden cursor-pointer"
+          >
             <Menu size={20} />
           </button>
-          <div className="flex items-center gap-2">
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="flex items-center gap-1 hover:bg-[#1f1f1f] rounded-lg px-2 py-1 transition-colors cursor-pointer"
+          >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center">
               <Sparkles size={18} className="text-white" />
             </div>
             <span className="font-medium text-lg hidden sm:block">Stockify</span>
-            <ChevronDown size={16} className="text-slate-400 hidden sm:block" />
-          </div>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="px-4 py-2 hover:bg-[#1f1f1f] rounded-full text-sm transition-colors hidden sm:flex items-center gap-2">
+          <button 
+            onClick={handleShare}
+            className="px-4 py-2 hover:bg-[#1f1f1f] rounded-full text-sm transition-colors hidden sm:flex items-center gap-2 cursor-pointer"
+          >
             <Share2 size={16} />
             Share
           </button>
           <button 
             onClick={() => window.location.href = '/'}
-            className="px-4 py-2 bg-[#1f1f1f] hover:bg-[#2d2d2d] rounded-full text-sm transition-colors"
+            className="px-4 py-2 bg-[#1f1f1f] hover:bg-[#2d2d2d] rounded-full text-sm transition-colors cursor-pointer"
           >
             Dashboard
           </button>
@@ -257,7 +375,7 @@ export default function StockifyPerplexity() {
                     <button
                       key={i}
                       onClick={() => handleSearch(sug.query)}
-                      className="p-5 rounded-xl text-left transition-all hover:scale-[1.02] group border border-gray-800"
+                      className="p-5 rounded-xl text-left transition-all hover:scale-[1.02] group border border-gray-800 cursor-pointer"
                       style={{ backgroundColor: '#1a1a1a' }}
                     >
                       <div className="flex items-start gap-3">
@@ -278,17 +396,40 @@ export default function StockifyPerplexity() {
           {/* Chat Messages */}
           {chatHistory.map(msg => <ChatMessage key={msg.id} msg={msg} />)}
           
-          {/* Loading State */}
+          {/* Loading State with Progress */}
           {isSearching && (
             <div className="flex gap-4 mb-10 animate-fade-in">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
                 <Sparkles size={20} className="text-white animate-pulse" />
               </div>
               <div className="flex-1">
-                <div className="flex gap-2 mt-2">
-                  <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="mb-3">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                    <span className="text-slate-400 text-sm">Analyzing your query...</span>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full bg-slate-800 rounded-full h-1.5 mb-3">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-purple-500 h-1.5 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${(currentStep / progressSteps.length) * 100}%` }}
+                    ></div>
+                  </div>
+                  
+                  {/* Current Step */}
+                  {currentStepText && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <div className="w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center">
+                        <span className="text-xs text-white font-medium">{currentStep}</span>
+                      </div>
+                      <span className="text-slate-300">{currentStepText}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -306,7 +447,7 @@ export default function StockifyPerplexity() {
               ref={textareaRef}
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
               placeholder="Ask Stockify AI about stocks, markets, or news..."
               rows={1}
               disabled={isSearching}
@@ -318,21 +459,21 @@ export default function StockifyPerplexity() {
             <div className="absolute right-3 bottom-3 flex items-center gap-1">
               <button 
                 disabled={isSearching}
-                className="p-2.5 hover:bg-[#2d2d2d] rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50"
+                className="p-2.5 hover:bg-[#2d2d2d] rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50 cursor-pointer"
                 title="Attach file"
               >
                 <Paperclip size={20} />
               </button>
               <button 
                 disabled={isSearching}
-                className="p-2.5 hover:bg-[#2d2d2d] rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50"
+                className="p-2.5 hover:bg-[#2d2d2d] rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50 cursor-pointer"
                 title="Add image"
               >
                 <ImageIcon size={20} />
               </button>
               <button 
                 disabled={isSearching}
-                className="p-2.5 hover:bg-[#2d2d2d] rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50"
+                className="p-2.5 hover:bg-[#2d2d2d] rounded-full transition-colors text-slate-400 hover:text-white disabled:opacity-50 cursor-pointer"
                 title="Voice input"
               >
                 <Mic size={20} />
@@ -340,7 +481,7 @@ export default function StockifyPerplexity() {
               <button
                 onClick={() => handleSearch()}
                 disabled={!inputValue.trim() || isSearching}
-                className="ml-1 p-3 bg-white hover:bg-slate-100 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-full transition-colors text-black disabled:text-slate-500"
+                className="ml-1 p-3 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed rounded-full transition-colors text-white disabled:text-slate-500 cursor-pointer"
                 title="Send"
               >
                 <ArrowUpRight size={20} />

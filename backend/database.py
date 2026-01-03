@@ -9,35 +9,52 @@ async def get_stock_prices(
     end_date: datetime
 ) -> List[dict]:
     """
-    Fetch price rows either by stock_id (UUID) or by yfin_symbol (e.g., HDFCBANK or HDFCBANK.NS).
+    Fetch price rows either by stock_id (UUID) or by symbol (e.g., HDFCBANK or HDFCBANK.NS).
 
     The API layer may pass a bare symbol for routes like /stocks/prices/{symbol}.
-    This function now supports both forms.
+    This function now supports both forms by first resolving symbols to stock_id.
     """
     try:
-        print(stock_id)
         print(f"Querying stock prices for {stock_id} from {start_date} to {end_date}")
-
-        # Build base query
-        query = supabase.table('stock_prices').select('*')
 
         key = (stock_id or "").strip()
         # Heuristic: UUIDs contain dashes and are 36 chars; otherwise treat as symbol
         is_uuid_like = ('-' in key and len(key) >= 32)
+        
+        actual_stock_id = None
+        
         if is_uuid_like:
-            query = query.eq('stock_id', key)
+            actual_stock_id = key
+            print(f"Using provided stock_id: {actual_stock_id}")
         else:
+            # Symbol provided - need to resolve to stock_id
             clean = key.upper().replace('.NS', '')
-            # Match either with .NS suffix or without using in_ filter
-            query = query.in_('yfin_symbol', [f"{clean}.NS", clean])
+            symbol_variants = [f"{clean}.NS", clean]
+            print(f"Resolving symbol variants {symbol_variants} to stock_id")
+            
+            # Look up stock_id from stocks table
+            stocks_response = supabase.table('stocks').select('id, yfin_symbol, stock_name').in_('yfin_symbol', symbol_variants).execute()
+            
+            if stocks_response.data:
+                actual_stock_id = stocks_response.data[0]['id']
+                print(f"Resolved symbol {key} to stock_id: {actual_stock_id} ({stocks_response.data[0]['stock_name']})")
+            else:
+                print(f"No stock found for symbol variants: {symbol_variants}")
+                return []
 
-        response = query \
+        if not actual_stock_id:
+            print("No valid stock_id found")
+            return []
+
+        # Query stock_prices using the resolved stock_id
+        response = supabase.table('stock_prices').select('*') \
+            .eq('stock_id', actual_stock_id) \
             .gte('date', start_date.strftime('%Y-%m-%d')) \
             .lte('date', end_date.strftime('%Y-%m-%d')) \
             .order('date') \
             .execute()
 
-        print(f"Query response: {response}")
+        print(f"Query response: {len(response.data)} records found")
         return response.data if response and hasattr(response, 'data') else []
     except Exception as e:
         print(f"Error in get_stock_prices: {str(e)}")

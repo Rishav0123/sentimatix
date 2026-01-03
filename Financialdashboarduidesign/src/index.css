@@ -720,6 +720,10 @@
     cursor: pointer;
   }
 
+  .cursor-not-allowed {
+    cursor: not-allowed;
+  }
+
   .grid-cols-1 {
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
@@ -1879,6 +1883,44 @@ html {
 
 .hover\:pause-scroll:hover {
   animation-play-state: paused;
+}
+
+/* Fix cursor pointer for interactive elements */
+button, 
+.cursor-pointer,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+a[href],
+select,
+.clickable,
+div[onclick],
+[onclick] {
+  cursor: pointer !important;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+[disabled] {
+  cursor: not-allowed !important;
+}
+
+/* Ensure all interactive elements show pointer cursor */
+button:not(:disabled),
+a:not([disabled]),
+[role="button"]:not([disabled]),
+.group button:not(:disabled),
+div[onclick]:not([disabled]) {
+  cursor: pointer !important;
+}
+
+/* Ensure hover states work properly */
+button:hover:not(:disabled),
+[role="button"]:hover:not(:disabled),
+div[onclick]:hover:not([disabled]) {
+  cursor: pointer !important;
 }
 
 /* Custom scrollbar */

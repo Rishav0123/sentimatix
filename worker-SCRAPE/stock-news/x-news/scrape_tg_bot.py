@@ -68,9 +68,21 @@ load_dotenv()
 
 
 # Load Telegram API credentials from .env file
-
-api_id = int(os.getenv('TG_API_ID'))
+api_id = os.getenv('TG_API_ID')
 api_hash = os.getenv('TG_API_HASH')
+
+# Check if Telegram credentials are provided
+if not api_id or not api_hash or api_id == 'your_telegram_api_id_here':
+    print("❌ Telegram API credentials not configured.")
+    print("To use the Telegram scraper:")
+    print("1. Go to https://my.telegram.org/apps")
+    print("2. Create a new app to get API_ID and API_HASH")
+    print("3. Update the .env file with your credentials")
+    print("4. Replace 'your_telegram_api_id_here' with your actual API ID")
+    print("\nFor now, use the RSS scraper (scrape_gnews.py) which is already working!")
+    exit(0)
+
+api_id = int(api_id)
 
 # Channel username or ID (replace with actual financial news channel)
 channel_usernames = ('stocktwitsindia', 'moneycontrolcom')  # Example: '@financenews'

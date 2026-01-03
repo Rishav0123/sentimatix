@@ -1,90 +1,103 @@
+import { useState, useEffect } from "react";
 import { StandoutCard } from "./StandoutCard";
 
 interface StandoutsProps {
   onStockClick: (ticker: string) => void;
 }
 
-const standoutStocks = [
-  {
-    name: "Navin Fluorine International Limited",
-    ticker: "NAVINFLUOR",
-    exchange: "BSE",
-    price: "₹5,696.68",
-    change: 14.48,
-    changeValue: "+14.48%",
-    logo: "🔷",
-    volume: "298.69K",
-    marketCap: "289.75B",
-    peRatio: "85.63",
-    dividendYield: "0.23%",
-    chartData: [
-      5200, 5150, 5100, 5050, 5000, 4950, 4900, 4950, 5000, 5100, 5200, 5300, 5400, 5500, 5600,
-      5650, 5680, 5696,
-    ],
-    description:
-      "Navin Fluorine shares surged sharply today after the company reported a stellar quarterly result with net profit soaring 192%, announced an interim dividend, and said multiple ongoing with increased capacity targets.",
-  },
-  {
-    name: "TD Power Systems Limited",
-    ticker: "TDPOWERSYS",
-    exchange: "BSE",
-    price: "₹774.68",
-    change: 12.95,
-    changeValue: "+12.95%",
-    logo: "⚡",
-    volume: "540.1K",
-    marketCap: "120.98B",
-    peRatio: "21.4",
-    dividendYield: "0.86%",
-    chartData: [
-      700, 695, 690, 685, 680, 675, 670, 680, 690, 700, 710, 720, 730, 740, 750, 760, 770, 774,
-    ],
-    description:
-      "TD Power Systems shares surged significantly today after announcing a sharp 48% jump in Q2 profit driven by robust revenue and export growth, alongside a declared dividend, amid boosted investor sentiment.",
-  },
-  {
-    name: "Bandhan Bank Limited",
-    ticker: "BANDHANBNK",
-    exchange: "BSE",
-    price: "₹156.55",
-    change: -8.18,
-    changeValue: "-8.18%",
-    logo: "🏦",
-    volume: "4.89M",
-    marketCap: "252.2B",
-    peRatio: "20.54",
-    dividendYield: "0.00%",
-    chartData: [
-      180, 178, 176, 174, 172, 170, 168, 166, 164, 162, 160, 158, 156, 157, 158, 157, 156, 156,
-    ],
-    description:
-      "Bandhan Bank's stock plummeted sharply today after the company reported disappointing Q2 financial results, including a significant drop in net profit and weaker performance compared to peers, which led to widespread selling interest among investors.",
-  },
-  {
-    name: "Chennai Petroleum Corporation Limited",
-    ticker: "CHENNPETRO",
-    exchange: "BSE",
-    price: "₹988.85",
-    change: 18.8,
-    changeValue: "+18.8%",
-    logo: "🛢️",
-    volume: "2.63M",
-    marketCap: "145.54B",
-    peRatio: "12.45",
-    dividendYield: "0.51%",
-    chartData: [
-      820, 825, 830, 835, 840, 845, 850, 860, 870, 880, 900, 920, 940, 960, 970, 980, 985, 988,
-    ],
-    description:
-      "Chennai Petroleum Corporation shares rallied significantly today after the company announced strong quarterly earnings with improved refining margins and higher throughput, boosting investor confidence in the oil refining sector.",
-  },
-];
+interface StandoutStock {
+  name: string;
+  ticker: string;
+  exchange: string;
+  price: string;
+  change: number;
+  changeValue: string;
+  logo: string;
+  volume: string;
+  marketCap: string;
+  peRatio: string;
+  dividendYield: string;
+  chartData: number[];
+  description: string;
+}
 
 export function Standouts({ onStockClick }: StandoutsProps) {
+  const [standoutStocks, setStandoutStocks] = useState<StandoutStock[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchStandouts = async () => {
+      try {
+        setLoading(true);
+        console.log('📈 Fetching standouts from API...');
+        
+        const response = await fetch('http://localhost:8000/api/standouts?limit=4');
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('✅ Standouts data received:', data);
+        setStandoutStocks(data);
+        setError(null);
+      } catch (err) {
+        console.error('❌ Error fetching standout stocks:', err);
+        setError('Failed to load standout stocks');
+        
+        // Fallback to mock data
+        setStandoutStocks([
+          {
+            name: "Reliance Industries",
+            ticker: "RELIANCE",
+            exchange: "NSE",
+            price: "₹1,556.20",
+            change: 2.46,
+            changeValue: "+2.46%",
+            logo: "🏭",
+            volume: "5.8M",
+            marketCap: "₹10.5T",
+            peRatio: "25.4",
+            dividendYield: "0.35%",
+            chartData: [1500, 1520, 1510, 1530, 1540, 1535, 1545, 1550, 1548, 1552, 1556, 1556],
+            description: "Reliance Industries gained 2.46% today driven by strong quarterly results and positive outlook for its digital and retail businesses."
+          }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStandouts();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-[#E5E7EB] text-xl">Standouts</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-[#1F2937] rounded-lg p-4 animate-pulse">
+              <div className="h-4 bg-gray-600 rounded mb-2"></div>
+              <div className="h-6 bg-gray-600 rounded mb-2"></div>
+              <div className="h-3 bg-gray-600 rounded"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-[#E5E7EB] text-xl">Standouts</h3>
+        {error && (
+          <span className="text-red-400 text-sm">Using fallback data</span>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

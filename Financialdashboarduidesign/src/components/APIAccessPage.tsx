@@ -331,7 +331,7 @@ print(data)`,
             Check out our comprehensive API documentation for detailed guides and examples
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#3B82F6] hover:bg-[#3B82F6]/90 text-white rounded-lg transition-colors">
+        <button className="flex items-center gap-2 px-4 py-2 bg-[#3B82F6] hover:bg-[#3B82F6]/90 text-white rounded-lg transition-colors cursor-pointer">
           View Docs
           <ExternalLink className="w-4 h-4" />
         </button>

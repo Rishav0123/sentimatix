@@ -81,7 +81,7 @@ export function StockTable({ stocks, onStockClick }: StockTableProps) {
               <th className="text-left p-4 text-[#9CA3AF] text-xs">
                 <button
                   onClick={() => handleSort("name")}
-                  className="flex items-center gap-1 hover:text-[#E5E7EB] transition-colors"
+                  className="flex items-center gap-1 hover:text-[#E5E7EB] transition-colors cursor-pointer"
                 >
                   Stock
                   <ArrowUpDown className="w-3 h-3" />

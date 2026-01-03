@@ -1,4 +1,5 @@
 import { Search, User, Sparkles, Bell, Share2, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 
 interface TopNavProps {
   onAskStockify: () => void;
@@ -8,6 +9,35 @@ interface TopNavProps {
 }
 
 export function TopNav({ onAskStockify, selectedMarket, onMarketChange, showMarketSelector = true }: TopNavProps) {
+  const [showMarketDropdown, setShowMarketDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const markets = [
+    { id: "india", name: "India Markets", flag: "🇮🇳", color: "#10B981" },
+    { id: "usa", name: "USA Markets", flag: "🇺🇸", color: "#3B82F6" },
+  ];
+
+  const currentMarket = markets.find(m => m.name === selectedMarket) || markets[0];
+
+  const handleMarketSelect = (market: typeof markets[0]) => {
+    onMarketChange(market.name);
+    setShowMarketDropdown(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowMarketDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className="bg-[#111827] border-b border-gray-800">
       <div className="px-6 py-4 flex items-center justify-between gap-6">
@@ -31,23 +61,20 @@ export function TopNav({ onAskStockify, selectedMarket, onMarketChange, showMark
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#0B1120] transition-colors text-[#9CA3AF] hover:text-[#E5E7EB]">
+          <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#0B1120] transition-colors text-[#9CA3AF] hover:text-[#E5E7EB] cursor-pointer">
             <Bell className="w-4 h-4" />
             <span className="text-sm">Price Alert</span>
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#0B1120] transition-colors text-[#9CA3AF] hover:text-[#E5E7EB]">
+          <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-[#0B1120] transition-colors text-[#9CA3AF] hover:text-[#E5E7EB] cursor-pointer">
             <Share2 className="w-4 h-4" />
             <span className="text-sm">Share</span>
           </button>
           <button
             onClick={onAskStockify}
-            className="flex items-center gap-2 bg-[#3B82F6] hover:bg-[#3B82F6]/90 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 bg-[#3B82F6] hover:bg-[#3B82F6]/90 text-white px-4 py-2 rounded-lg transition-colors cursor-pointer"
           >
             <Sparkles className="w-4 h-4" />
             Ask Stockify
-          </button>
-          <button className="w-10 h-10 bg-[#0B1120] border border-gray-800 rounded-lg flex items-center justify-center hover:border-gray-700 transition-colors">
-            <User className="w-5 h-5 text-[#9CA3AF]" />
           </button>
         </div>
       </div>
@@ -57,32 +84,54 @@ export function TopNav({ onAskStockify, selectedMarket, onMarketChange, showMark
         <div className="px-6 py-3 flex items-center justify-between border-t border-gray-800">
           <div className="flex items-center gap-4">
             {/* Market Dropdown */}
-            <button
-              onClick={() => onMarketChange("India Markets")}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#10B981]/10 border border-[#10B981]/20 rounded-lg text-[#10B981] hover:bg-[#10B981]/20 transition-colors"
-            >
-              <span className="text-sm">🇮🇳</span>
-              <span className="text-sm">India Markets</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setShowMarketDropdown(!showMarketDropdown)}
+                className="flex items-center gap-2 px-3 py-1.5 border rounded-lg transition-colors cursor-pointer"
+                style={{ 
+                  backgroundColor: `${currentMarket.color}10`, 
+                  borderColor: `${currentMarket.color}33`,
+                  color: currentMarket.color 
+                }}
+              >
+                <span className="text-sm">{currentMarket.flag}</span>
+                <span className="text-sm">{currentMarket.name}</span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${showMarketDropdown ? 'rotate-180' : ''}`} />
+              </button>
 
-            {/* Quick Access Tabs */}
+              {/* Dropdown Menu */}
+              {showMarketDropdown && (
+                <div className="absolute top-full left-0 mt-1 bg-[#111827] border border-gray-800 rounded-lg shadow-lg z-50 min-w-[160px]">
+                  {markets.map((market) => (
+                    <button
+                      key={market.id}
+                      onClick={() => handleMarketSelect(market)}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[#0B1120] transition-colors text-sm ${
+                        market.name === selectedMarket ? 'bg-[#0B1120]' : ''
+                      }`}
+                      style={{ color: market.name === selectedMarket ? market.color : '#9CA3AF' }}
+                    >
+                      <span>{market.flag}</span>
+                      <span>{market.name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Quick Access Tabs - Only Crypto now */}
             <div className="flex items-center gap-2">
-              <button className="px-3 py-1.5 rounded-lg text-[#9CA3AF] hover:text-[#E5E7EB] hover:bg-[#0B1120] transition-colors text-sm">
+              <button className="px-3 py-1.5 rounded-lg text-[#9CA3AF] hover:text-[#E5E7EB] hover:bg-[#0B1120] transition-colors text-sm cursor-pointer">
                 Crypto
-              </button>
-              <button className="px-3 py-1.5 rounded-lg text-[#9CA3AF] hover:text-[#E5E7EB] hover:bg-[#0B1120] transition-colors text-sm">
-                Earnings
-              </button>
-              <button className="px-3 py-1.5 rounded-lg text-[#9CA3AF] hover:text-[#E5E7EB] hover:bg-[#0B1120] transition-colors text-sm">
-                Screener
               </button>
             </div>
           </div>
 
           {/* Market Status */}
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-[#9CA3AF]">1 Nov 2025, IST • Market Closed</span>
+            <span className="text-[#9CA3AF]">
+              {currentMarket.id === 'india' ? '1 Nov 2025, IST • Market Closed' : '1 Nov 2025, EST • Market Closed'}
+            </span>
             <div className="flex items-center gap-1.5">
               <div className="flex items-center gap-1">
                 <div className="w-1 h-1 bg-gray-500 rounded-full"></div>

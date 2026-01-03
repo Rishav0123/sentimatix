@@ -264,24 +264,26 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
         });
 
         // Determine final sentiment value with explicit priority:
-        // 1. Use impact_score or sentiment_score if it exists (including 0)
+        // 1. Use impact_score if it exists (should be 0-100 scale from backend)
         // 2. Map sentiment string to number
-        // 3. Default to 60 only if nothing else is available
+        // 3. Default to 50 (neutral) only if nothing else is available
         let finalSentiment: number;
         
         const sentimentScore = apiNews.impact_score ?? apiNews.sentiment_score;
         
         if (typeof sentimentScore === 'number') {
-          // Always use the actual impact_score from backend
+          // Backend now returns impact_score in 0-100 scale
           finalSentiment = sentimentScore;
           console.log(`✅ Using backend impact_score: ${finalSentiment}`);
         } else if (apiNews.sentiment) {
           // Fallback to sentiment string mapping only if no numeric score
-          finalSentiment = mapSentimentToNumber(apiNews.sentiment);
+          const mappedValue = mapSentimentToNumber(apiNews.sentiment);
+          // Convert -1,0,1 scale to 0-100 scale for consistency
+          finalSentiment = (mappedValue + 1) * 50;
           console.log(`📝 Mapped sentiment string '${apiNews.sentiment}' to: ${finalSentiment}`);
         } else {
-          // Last resort default
-          finalSentiment = 0;
+          // Last resort default (neutral)
+          finalSentiment = 50;
           console.log(`⚠️ Using default sentiment: ${finalSentiment}`);
         }
 
@@ -392,9 +394,9 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
   const filteredNews = newsItems.filter((item: NewsItem) => {
     if (selectedCategory !== "All" && item.category !== selectedCategory) return false;
     if (selectedSentiment !== "All") {
-      if (selectedSentiment === "Positive" && item.sentiment <= 0) return false;    // Positive: > 0
-      if (selectedSentiment === "Neutral" && item.sentiment !== 0) return false;    // Neutral: = 0
-      if (selectedSentiment === "Negative" && item.sentiment >= 0) return false;    // Negative: < 0
+      if (selectedSentiment === "Positive" && item.sentiment <= 50) return false;    // Positive: > 50
+      if (selectedSentiment === "Neutral" && (item.sentiment < 45 || item.sentiment > 55)) return false;    // Neutral: 45-55
+      if (selectedSentiment === "Negative" && item.sentiment >= 50) return false;    // Negative: < 50
     }
     if (searchQuery && !item.title.toLowerCase().includes(searchQuery.toLowerCase()) && !item.ticker.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
@@ -403,21 +405,21 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
   });
 
   const getSentimentColor = (sentiment: number) => {
-    if (sentiment > 0) return "text-[#10B981]";  // Positive: > 0
-    if (sentiment === 0) return "text-blue-400"; // Neutral: = 0
-    return "text-red-500";                       // Negative: < 0
+    if (sentiment > 55) return "text-[#10B981]";  // Positive: > 55
+    if (sentiment >= 45) return "text-blue-400";  // Neutral: 45-55
+    return "text-red-500";                        // Negative: < 45
   };
 
   const getSentimentBg = (sentiment: number) => {
-    if (sentiment > 0) return "bg-[#10B981]/10 border-[#10B981]/20";  // Positive
-    if (sentiment === 0) return "bg-blue-400/10 border-blue-400/20";  // Neutral
-    return "bg-red-500/10 border-red-500/20";                        // Negative
+    if (sentiment > 55) return "bg-[#10B981]/10 border-[#10B981]/20";  // Positive
+    if (sentiment >= 45) return "bg-blue-400/10 border-blue-400/20";   // Neutral
+    return "bg-red-500/10 border-red-500/20";                         // Negative
   };
 
   const getSentimentLabel = (sentiment: number) => {
-    if (sentiment > 0) return "Positive";   // Positive: > 0
-    if (sentiment === 0) return "Neutral";  // Neutral: = 0  
-    return "Negative";                      // Negative: < 0
+    if (sentiment > 55) return "Positive";   // Positive: > 55
+    if (sentiment >= 45) return "Neutral";   // Neutral: 45-55  
+    return "Negative";                       // Negative: < 45
   };
 
   return (
@@ -426,7 +428,7 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-[#E5E7EB] text-2xl mb-1">Market News & Sentiment</h2>
-          <p className="text-[#9CA3AF] text-sm">
+          <p className="text-gray-300 text-sm">
             Real-time news with AI-powered sentiment analysis
           </p>
         </div>
@@ -455,7 +457,7 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
         <div className="bg-[#111827] rounded-xl p-8 border border-gray-800 text-center">
           <div className="flex items-center justify-center gap-3">
             <RefreshCw className="w-5 h-5 animate-spin text-[#3B82F6]" />
-            <p className="text-[#9CA3AF]">Loading news data...</p>
+            <p className="text-gray-300">Loading news data...</p>
           </div>
         </div>
       )}
@@ -484,7 +486,7 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
           {/* Category & Sentiment Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[#9CA3AF] text-xs mb-2">Category</label>
+              <label className="block text-gray-300 text-xs mb-2">Category</label>
               <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => (
                   <button
@@ -503,7 +505,7 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
             </div>
 
             <div>
-              <label className="block text-[#9CA3AF] text-xs mb-2">Sentiment</label>
+              <label className="block text-gray-300 text-xs mb-2">Sentiment</label>
               <div className="flex gap-2">
                 {sentiments.map((sent) => (
                   <button
@@ -526,12 +528,12 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
 
       {/* Results Count */}
       <div className="flex items-center justify-between">
-        <p className="text-[#9CA3AF] text-sm">
-          Showing <span className="text-[#E5E7EB]">{filteredNews.length}</span> of{" "}
-          <span className="text-[#E5E7EB]">{newsItems.length}</span> articles on this page
+        <p className="text-gray-300 text-sm">
+          Showing <span className="text-white">{filteredNews.length}</span> of{" "}
+          <span className="text-white">{newsItems.length}</span> articles on this page
           {totalItems > 0 && (
             <span className="ml-2">
-              (<span className="text-[#E5E7EB]">{totalItems.toLocaleString()}</span> total available)
+              (<span className="text-white">{totalItems.toLocaleString()}</span> total available)
             </span>
           )}
         </p>
@@ -556,15 +558,15 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
                       >
                         {item.ticker}
                       </button>
-                      <span className="text-[#9CA3AF] text-xs">•</span>
-                      <span className="text-[#9CA3AF] text-xs">{item.stockName}</span>
-                      <span className="text-[#9CA3AF] text-xs">•</span>
-                      <span className="text-[#9CA3AF] text-xs">{item.time}</span>
+                      <span className="text-gray-300 text-xs">•</span>
+                      <span className="text-gray-300 text-xs">{item.stockName}</span>
+                      <span className="text-gray-300 text-xs">•</span>
+                      <span className="text-gray-300 text-xs">{item.time}</span>
                     </div>
-                    <h3 className="text-[#E5E7EB] text-lg mb-2 group-hover:text-[#3B82F6] transition-colors">
+                    <h3 className="text-white text-lg mb-2 group-hover:text-[#3B82F6] transition-colors">
                       {item.title}
                     </h3>
-                    <p className="text-[#9CA3AF] text-sm leading-relaxed mb-3">
+                    <p className="text-gray-200 text-sm leading-relaxed mb-3">
                       {item.summary}
                     </p>
                   </div>
@@ -573,8 +575,8 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
                 {/* Footer */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-[#9CA3AF] text-xs">{item.source}</span>
-                    <span className="px-2 py-1 bg-[#0B1120] border border-gray-800 rounded text-[#9CA3AF] text-xs">
+                    <span className="text-gray-200 text-xs">{item.source}</span>
+                    <span className="px-2 py-1 bg-[#0B1120] border border-gray-800 rounded text-gray-200 text-xs">
                       {item.category}
                     </span>
                   </div>
@@ -597,7 +599,7 @@ export function NewsFeedPage({ onStockSelect }: NewsFeedPageProps) {
                     <span className={`text-sm ${getSentimentColor(item.sentiment)}`}>
                       {getSentimentLabel(item.sentiment)}
                     </span>
-                    <span className="text-[#9CA3AF] text-xs">•</span>
+                    <span className="text-gray-300 text-xs">•</span>
                     <span className={`${getSentimentColor(item.sentiment)}`}>
                       {item.sentiment}
                     </span>

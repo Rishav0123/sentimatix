@@ -1,0 +1,113 @@
+{
+  "success": true,
+  "data": {
+    "stock_info": {
+      "symbol": "TCS",
+      "name": "TCS Limited",
+      "current_price": "\u20b93,206.20",
+      "period": "Last year"
+    },
+    "performance": {
+      "change_percent": -20.63,
+      "change_value": "-\u20b9833.24",
+      "direction": "down",
+      "volatility": "high",
+      "trend_indicator": "\ud83d\udcc9",
+      "symbol": "TCS"
+    },
+    "sentiment_summary": {
+      "overall_score": 7.3,
+      "interpretation": "Neutral",
+      "confidence": "high",
+      "article_count": 100,
+      "breakdown": {
+        "positive": 33,
+        "negative": 19,
+        "neutral": 48
+      }
+    },
+    "key_events": [
+      {
+        "title": "Buy Tata Consultancy Services; target of Rs 3800: Prabhudas Lilladher",
+        "date": "2025-10-10",
+        "source": "Moneycontrol",
+        "relevance_score": 100.0,
+        "quality": "EXCELLENT",
+        "impact": "positive",
+        "summary": "",
+        "url": "https://www.moneycontrol.com/news/tcs/buy-tata-consultancy-services-target-of-rs-3800-20251010"
+      },
+      {
+        "title": "Tata Consultancy Services Q2 PAT may dip 1.8% QoQ to Rs. 12,530 cr: Prabhudas Lilladher",
+        "date": "2025-10-09",
+        "source": "Moneycontrol",
+        "relevance_score": 100.0,
+        "quality": "EXCELLENT",
+        "impact": "neutral",
+        "summary": "",
+        "url": "https://www.moneycontrol.com/news/tcs/tata-consultancy-services-q2-pat-may-dip-18-20251009"
+      },
+      {
+        "title": "TCS Q2 results FY26: Tata Consultancy Services posts net profit of Rs 12,075 crore; check details20 days ago",
+        "date": "2025-10-09",
+        "source": "The Times of India",
+        "relevance_score": 100.0,
+        "quality": "EXCELLENT",
+        "impact": "positive",
+        "summary": "The Times of IndiaMoreTCS Q2 results FY26: Tata Consultancy Services posts net profit of Rs 12,075 crore; check details20 days ago",
+        "url": null
+      },
+      {
+        "title": "TCS Q2 results FY26: Tata Consultancy Services posts net profit of Rs 12,075 crore; check details21 days ago",
+        "date": "2025-10-09",
+        "source": "Times of India",
+        "relevance_score": 100.0,
+        "quality": "EXCELLENT",
+        "impact": "positive",
+        "summary": "Times of IndiaMoreTCS Q2 results FY26: Tata Consultancy Services posts net profit of Rs 12,075 crore; check details21 days ago",
+        "url": null
+      },
+      {
+        "title": "TCS Q2 results FY26: Tata Consultancy Services posts net profit of Rs 12,075 crore; check details21 days ago",
+        "date": "2025-10-09",
+        "source": "The Times of India",
+        "relevance_score": 100.0,
+        "quality": "EXCELLENT",
+        "impact": "positive",
+        "summary": "The Times of IndiaMoreTCS Q2 results FY26: Tata Consultancy Services posts net profit of Rs 12,075 crore; check details21 days ago",
+        "url": null
+      }
+    ],
+    "correlation": null,
+    "symbol": "TCS",
+    "insights": {
+      "bottom_line": "TCS showed significant downward movement with neutral sentiment driven by strong earnings performance reported with 3 positive updates regarding quarterly growth and profitability.. Monitor high volatility for trading opportunities.",
+      "key_drivers": [
+        "Strong earnings performance reported with 3 positive updates regarding quarterly growth and profitability.",
+        "Bullish analyst sentiment with 1 'Buy' recommendations and positive price target revisions.",
+        "Broader market trends and sector-specific news influenced general investor sentiment during this period.",
+        "Price correction pressure",
+        "Increased market volatility"
+      ],
+      "risk_factors": [
+        "High price volatility"
+      ],
+      "recommendation": "SELL",
+      "confidence_level": "high",
+      "market_themes": [
+        "Quarterly results were a focal point with 6 articles discussing recent financial updates and performance metrics.",
+        "Bullish analyst sentiment with 2 'Buy' recommendations and positive price target revisions.",
+        "High trading activity and significant price volatility tracked across 29 recent market updates.",
+        "Strategic corporate updates including: Tata Consultancy Services (TCS) - Coal India, REC among top 10 largecap stock..."
+      ]
+    },
+    "performance_icon": "\ud83d\udcca",
+    "sentiment_icon": "\u2796",
+    "news_icon": "\ud83d\udcf0",
+    "risk_icon": "\u26a0\ufe0f"
+  },
+  "timestamp": "2026-01-03T10:33:00.244840",
+  "metadata": {
+    "analysis_type": "detailed"
+  }
+}

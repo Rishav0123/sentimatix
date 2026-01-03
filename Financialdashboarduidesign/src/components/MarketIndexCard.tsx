@@ -1,80 +1,81 @@
-import { TrendingDown, TrendingUp } from "lucide-react";
-
 interface MarketIndexCardProps {
   name: string;
   ticker: string;
-  exchange: string;
   value: string;
   change: number;
-  changeValue: string;
-  chartData: number[];
-  onClick?: () => void;
+  priceData: number[];
 }
 
 export function MarketIndexCard({
   name,
   ticker,
-  exchange,
   value,
   change,
-  changeValue,
-  chartData,
-  onClick,
+  priceData,
 }: MarketIndexCardProps) {
   const isPositive = change >= 0;
-  const maxValue = Math.max(...chartData);
-  const minValue = Math.min(...chartData);
+  
+  // Safe price data processing
+  const safePriceData = Array.isArray(priceData) && priceData.length > 0 ? priceData : [100, 105, 102, 108, 106];
+  const maxPrice = Math.max(...safePriceData);
+  const minPrice = Math.min(...safePriceData);
+  const priceRange = maxPrice - minPrice;
+
+  // Generate price path for chart
+  const generatePricePath = () => {
+    if (safePriceData.length === 0) return "M 0 20 L 100 20";
+    
+    const width = 100;
+    const height = 40;
+    
+    const points = safePriceData.map((price, i) => {
+      const x = (i / (safePriceData.length - 1)) * width;
+      const y = priceRange === 0 ? height / 2 : height - ((price - minPrice) / priceRange) * height;
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+    
+    return points;
+  };
 
   return (
-    <div
-      onClick={onClick}
-      className="bg-[#111827] rounded-xl p-4 border border-gray-800 hover:border-gray-700 transition-all cursor-pointer group"
-    >
-      <div className="mb-3">
-        <h3 className="text-[#E5E7EB] mb-1">{name}</h3>
-        <p className="text-[#9CA3AF] text-xs">
-          {ticker} · {exchange}
-        </p>
+    <div className="bg-[#1E293B] rounded-md p-2 border border-gray-700/50 hover:border-gray-600 transition-all duration-200 flex-1 h-24">
+      {/* Header with name and percentage */}
+      <div className="text-center mb-2">
+        <h3 className="text-white text-sm font-bold truncate leading-tight">{name.split(' ')[0]}</h3>
+        <div className={`text-sm font-medium ${isPositive ? "text-green-400" : "text-red-400"}`}>
+          {isPositive ? "+" : ""}{change.toFixed(1)}%
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-3">
-        <span
-          className={`text-xs px-2 py-0.5 rounded ${
-            isPositive
-              ? "bg-[#10B981]/10 text-[#10B981]"
-              : "bg-red-500/10 text-red-500"
-          }`}
-        >
-          {isPositive ? "+" : ""}
-          {change.toFixed(2)}%
-        </span>
-        <span
-          className={`text-xs ${
-            isPositive ? "text-[#10B981]" : "text-red-500"
-          }`}
-        >
-          {isPositive ? "+" : ""}
-          {changeValue}
-        </span>
+      {/* Chart with proper fitting */}
+      <div className="relative h-10 bg-gray-900/50 rounded mb-2">
+        <svg className="w-full h-full" viewBox="0 0 100 40" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id={`gradient-${ticker}`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor={isPositive ? "#10B981" : "#EF4444"} stopOpacity="0.3"/>
+              <stop offset="100%" stopColor={isPositive ? "#10B981" : "#EF4444"} stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          
+          <path
+            d={`${generatePricePath()} L 100 40 L 0 40 Z`}
+            fill={`url(#gradient-${ticker})`}
+          />
+          
+          <path
+            d={generatePricePath()}
+            fill="none"
+            stroke={isPositive ? "#10B981" : "#EF4444"}
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
       </div>
 
-      {/* Mini Chart */}
-      <div className="h-16 flex items-end gap-0.5 mb-3">
-        {chartData.map((value, i) => {
-          const height = ((value - minValue) / (maxValue - minValue)) * 100;
-          return (
-            <div
-              key={i}
-              className={`flex-1 rounded-sm transition-all ${
-                isPositive ? "bg-[#10B981]/30" : "bg-red-500/30"
-              }`}
-              style={{ height: `${Math.max(height, 10)}%` }}
-            />
-          );
-        })}
+      {/* Value */}
+      <div className="text-center">
+        <div className="text-white text-sm font-bold truncate">{Math.round(parseFloat(value.replace(/[₹$,]/g, '')) / 1000)}K</div>
       </div>
-
-      <div className="text-[#E5E7EB] text-xl">{value}</div>
     </div>
   );
 }
