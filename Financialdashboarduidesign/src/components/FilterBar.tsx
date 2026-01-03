@@ -74,7 +74,7 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
   const [availableSectors, setAvailableSectors] = useState<string[]>(defaultSectors);
 
   // API configuration
-  const API_BASE_URL = 'http://localhost:8000';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   // Fetch available sectors from API
   useEffect(() => {

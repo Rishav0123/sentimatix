@@ -42,7 +42,8 @@ export function RecentDevelopments({ symbol, days = 7, limit = 6 }: RecentDevelo
         params.append('stock_symbol', symbol);
       }
 
-      const response = await fetch(`http://localhost:8000/api/developments?${params}`);
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${API_BASE_URL}/api/developments?${params}`);
       const data = await response.json();
       
       if (response.ok) {

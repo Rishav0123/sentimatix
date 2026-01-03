@@ -42,12 +42,13 @@ export function NewsFeed() {
     try {
       setLoading(true);
 
-      let url = `http://localhost:8000/api/news?page=${page}&limit=${ITEMS_PER_PAGE}`;
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      let url = `${API_BASE_URL}/api/news?page=${page}&limit=${ITEMS_PER_PAGE}`;
       if (sentiment !== 'all') {
         url += `&sentiment=${sentiment}`;
       }
 
-      console.log(`Fetching: ${url}`);
+n      console.log(`Fetching: ${url}`);
       const response = await fetch(url);
 
       if (!response.ok) {
