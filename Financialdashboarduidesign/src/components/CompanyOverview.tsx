@@ -23,7 +23,7 @@ export function CompanyOverview({ ticker = "INFY" }: CompanyOverviewProps) {
   const [error, setError] = useState<string | null>(null);
 
   // API configuration
-  const API_BASE_URL = 'http://localhost:8000';
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
   const fetchStockData = async () => {
     try {
