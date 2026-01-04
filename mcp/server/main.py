@@ -97,13 +97,23 @@ app.add_middleware(
         "http://localhost:3000",
         "https://sentimatix.onrender.com",
         "https://stockify-back.onrender.com"
-    ],
+    allow_origin_regex='https://.*\.onrender\.com',
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=86400,
 )
+
+# Explicit OPTIONS handler for preflight checks - Required for some deployment environments
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    """
+    Handle OPTIONS requests for CORS preflight checks.
+    The CORSMiddleware should normally handle this, but an explicit handler 
+    ensures a 200 OK response is always returned.
+    """
+    return {"status": "ok"}
 
 
 
