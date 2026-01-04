@@ -28,16 +28,32 @@ jobs:
       run: |
         pytest -q || true
 
-    - name: Build Docker image (optional)
-      if: ${{ always() }}
+    - name: Build Docker image
       run: |
         docker build -t sentimatix-backend -f backend/Dockerfile .
 
-    - name: Push to GitHub Container Registry (optional)
-      if: ${{ secrets.CR_PAT != '' }}
+    - name: Push to GitHub Container Registry
+      if: ${{ secrets.CR_PAT }}
       env:
         CR_PAT: ${{ secrets.CR_PAT }}
       run: |
         echo $CR_PAT | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        docker tag sentimatix-backend ghcr.io/${{ github.repository_owner }}/sentimatix-backend:latest
-        docker push ghcr.io/${{ github.repository_owner }}/sentimatix-backend:latest
+        IMAGE=ghcr.io/${{ github.repository_owner }}/sentimatix-backend:${{ github.sha }}
+        docker tag sentimatix-backend $IMAGE
+        docker push $IMAGE
+        echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+    - name: Trigger Render deploy
+      if: ${{ secrets.RENDER_API_KEY }}
+      env:
+        RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+        RENDER_SERVICE_ID: srv-d5cl00ggjchc73cu3sfg
+      run: |
+        echo "Triggering Render deploy for service $RENDER_SERVICE_ID"
+        curl -s -X POST "https://api.render.com/v1/services/$RENDER_SERVICE_ID/deploys" \
+          -H "Authorization: Bearer $RENDER_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{"clearCache":false}' \
+          -o /tmp/render-deploy.json
+        echo "Render response:" && cat /tmp/render-deploy.json
+        
