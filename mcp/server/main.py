@@ -103,7 +103,7 @@ app.add_middleware(
     allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-API-Key", "x-api-key", "Content-Type", "Authorization"],
     expose_headers=["*"],
     max_age=86400,
 )
