@@ -110,7 +110,7 @@ export class MCPAPI {
   private apiKey: string;
 
   constructor(
-    baseURL: string = (import.meta as any).env?.VITE_MCP_URL || 'http://localhost:8003',
+    baseURL: string = (import.meta as any).env?.VITE_MCP_URL || 'https://mcp-pv1u.onrender.com',
     apiKey: string = (import.meta as any).env?.VITE_MCP_API_KEY || 'dev-key-12345'
   ) {
     // Force correct values to ensure connection works
