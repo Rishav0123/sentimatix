@@ -506,9 +506,9 @@ export class MCPAPI {
     // Reuse existing logic but with better error handling
     console.log('🔍 MCP Single Analysis:', symbol);
 
-    const response = await fetch(`${this.baseURL}/call`, {
+    const response = await fetch(`${this.baseURL}/call?api_key=${this.apiKey}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': this.apiKey },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'explain_price_change', // This orchestrator tool calls analyze_stock_enhanced internally
         arguments: { symbol, start_date: startDate, end_date: endDate },
@@ -531,9 +531,9 @@ export class MCPAPI {
   ): Promise<ComparisonResult> {
     console.log('🔍 MCP Comparison:', symbols);
 
-    const response = await fetch(`${this.baseURL}/call`, {
+    const response = await fetch(`${this.baseURL}/call?api_key=${this.apiKey}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-API-Key': this.apiKey },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'compare_stocks',
         arguments: {

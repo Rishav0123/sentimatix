@@ -127,12 +127,28 @@ class ToolResponse(BaseModel):
 
 
 # Authentication dependency
-def verify_api_key(x_api_key: str = Header(None)):
-    """Verify API key from request header"""
-    if not x_api_key or x_api_key != MCP_API_KEY:
-        logger.warning(f"Unauthorized access attempt with key: {x_api_key[:10] if x_api_key else 'None'}...")
+from fastapi import Query
+
+# Authentication dependency
+def verify_api_key(
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
+    api_key: Optional[str] = Query(None)
+):
+    """Verify API key from request header or query parameter"""
+    key = x_api_key or api_key
+    
+    # Allow if no key configured on server (dev mode) or key matches
+    if not MCP_API_KEY:
+        return key
+
+    if not key or key != MCP_API_KEY:
+        # Check if environment variable is set to default
+        if MCP_API_KEY == "dev-key-12345" and (not key or key == "dev-key-12345"):
+            return key
+            
+        logger.warning(f"Unauthorized access attempt. Key provided: {bool(key)}")
         raise HTTPException(status_code=401, detail="Invalid API key")
-    return x_api_key
+    return key
 
 
 # Health check endpoint
