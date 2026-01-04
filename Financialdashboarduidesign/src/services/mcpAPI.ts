@@ -114,8 +114,8 @@ export class MCPAPI {
     apiKey: string = (import.meta as any).env?.VITE_MCP_API_KEY || 'dev-key-12345'
   ) {
     // Force correct values to ensure connection works
-    this.baseURL = 'http://localhost:8003';
-    this.apiKey = 'dev-key-12345';
+    this.baseURL = baseURL;
+    this.apiKey = apiKey;
 
     console.log('🔧 MCP API initialized:', { baseURL: this.baseURL, apiKey: this.apiKey });
   }
