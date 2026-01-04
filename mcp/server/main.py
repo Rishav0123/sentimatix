@@ -97,7 +97,8 @@ app.add_middleware(
         "http://localhost:3000",
         "https://sentimatix.onrender.com",
         "https://stockify-back.onrender.com"
-    allow_origin_regex='https://.*\.onrender\.com',
+    ],
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
