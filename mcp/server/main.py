@@ -78,7 +78,9 @@ try:
     logger.info("Configuration validated successfully")
 except ValueError as e:
     logger.error(f"Configuration error: {e}")
-    raise
+    logger.warning("Starting server despite configuration errors - some features may be unavailable")
+    # Do not raise to allow server to start and handle CORS requests
+
 
 # Create FastAPI app
 app = FastAPI(
@@ -106,15 +108,7 @@ app.add_middleware(
     max_age=86400,
 )
 
-# Explicit OPTIONS handler for preflight checks - Required for some deployment environments
-@app.options("/{path:path}")
-async def options_handler(path: str):
-    """
-    Handle OPTIONS requests for CORS preflight checks.
-    The CORSMiddleware should normally handle this, but an explicit handler 
-    ensures a 200 OK response is always returned.
-    """
-    return {"status": "ok"}
+
 
 
 
