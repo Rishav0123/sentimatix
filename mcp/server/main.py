@@ -108,9 +108,18 @@ app.add_middleware(
     max_age=86400,
 )
 
-
-
-
+# Explicit OPTIONS handler to ensure preflight success
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    return JSONResponse(
+        content={"status": "ok"},
+        headers={
+            "Access-Control-Allow-Origin": "https://sentimatix.onrender.com",
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        },
+    )
 
 
 # Request/Response Models
