@@ -38,6 +38,11 @@ venv.bak/
 logs/
 *.log
 
+# Ignore temporary or credential scripts
+temp_post.py
+temp_post2.py
+temp_post3.py
+
 # OS
 .DS_Store
 Thumbs.db

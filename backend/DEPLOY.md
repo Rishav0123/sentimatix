@@ -9,6 +9,9 @@ Required environment variables
 
 If you're deploying to Render (https://render.com):
 
+- **Tip:** Use **Python 3.11** for the service runtime to avoid building pandas from source (Python 3.13 may not have prebuilt pandas wheels). You can change the runtime in the Render dashboard under Service > Environment > Runtime.
+- **Alternative:** Deploy using Docker — a `backend/Dockerfile` is included which uses Python 3.11 to ensure consistent, reproducible builds.
+
 1. Go to your service > Environment > Environment Variables
 2. Add `SUPABASE_URL` and `SUPABASE_KEY` (and any other keys needed)
 3. Redeploy the service

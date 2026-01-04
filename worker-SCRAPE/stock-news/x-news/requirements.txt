@@ -4,7 +4,7 @@ supabase
 pytz
 requests
 beautifulsoup4
-pandas
+pandas>=2.2.0,<3.0
 python-dotenv
 feedparser
 python-dateutil

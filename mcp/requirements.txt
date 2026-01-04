@@ -21,7 +21,8 @@ numpy>=1.26.0,<2.0
 scikit-learn>=1.5.0,<1.6
 
 # Data Processing
-pandas==2.1.3
+# Use a pandas release that provides prebuilt wheels for newer Python runtimes (avoids source builds on Python 3.13+).
+pandas>=2.2.0,<3.0
 requests==2.31.0
 
 # Utilities
