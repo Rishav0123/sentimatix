@@ -23,7 +23,8 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # MCP Server Configuration
 MCP_SERVER_HOST = os.getenv("MCP_SERVER_HOST", "0.0.0.0")
-MCP_SERVER_PORT = int(os.getenv("MCP_SERVER_PORT", "8001"))
+# Prioritize PORT environment variable for Render deployment
+MCP_SERVER_PORT = int(os.getenv("PORT", os.getenv("MCP_SERVER_PORT", "8001")))
 MCP_API_KEY = os.getenv("MCP_API_KEY", "dev-key-12345")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
