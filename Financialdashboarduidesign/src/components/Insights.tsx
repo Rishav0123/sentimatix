@@ -178,7 +178,7 @@ export function Insights() {
                   <div className={`w-3 h-3 rounded ${item.color}`}></div>
                   <span className="text-white">{item.sector}</span>
                 </div>
-                <span className={`text-sm font-bold ${item.performance >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <span className="text-white text-sm font-bold" style={{ color: 'white' }}>
                   {item.performance > 0 ? '+' : ''}{item.performance}%
                 </span>
               </div>
