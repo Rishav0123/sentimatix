@@ -1,20 +1,20 @@
 # MCP + RAG System Requirements
 
 # Core Framework
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-python-dotenv==1.0.0
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
 
 # Database & Storage
-supabase==2.0.3
-psycopg2-binary==2.9.9
-pgvector==0.2.3
+supabase>=2.0.3
+psycopg2-binary>=2.9.9
+pgvector>=0.2.3
 
 # LLM & Embeddings
-openai==1.3.5
-anthropic==0.7.0
-tiktoken==0.5.1
+openai>=1.3.5
+anthropic>=0.7.0
+tiktoken>=0.5.1
 
 # Vector Operations
 numpy>=1.26.0,<2.0
