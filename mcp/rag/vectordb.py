@@ -7,6 +7,7 @@ Setup required:
 """
 
 from supabase import create_client, Client
+from supabase.lib.client_options import ClientOptions
 from typing import List, Dict, Any, Optional
 import logging
 import numpy as np
@@ -78,8 +79,13 @@ class VectorDB:
             try:
                 logger.info(f"Initializing vector database connection (attempt {attempt + 1}/{max_retries})")
                 
-                # Create Supabase client
-                self.client = create_client(self.supabase_url, self.service_key)
+                # Create Supabase client directly using constructor to avoid potential proxy issues with create_client
+                # in some environments or library versions
+                self.client = Client(
+                    supabase_url=self.supabase_url, 
+                    supabase_key=self.service_key,
+                    options=ClientOptions()
+                )
                 
                 # Test connection by attempting a simple query
                 self._test_connection()
