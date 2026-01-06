@@ -60,6 +60,17 @@ export interface PriceExplanation {
     sentiment_score?: number;
     url?: string;
   }>;
+  technical_analysis?: {
+    symbol: string;
+    price: number;
+    indicators: {
+      rsi: { value: number; condition: string };
+      macd: { line: number; signal: number; histogram: number; trend: string };
+      bollinger_bands: { upper: number; middle: number; lower: number; width_pct: number };
+      moving_averages: { sma_50: number; ema_20: number; price_vs_sma50: string };
+      volatility: { atr: number };
+    };
+  };
   insights?: {
     bottom_line: string;
     key_drivers: string[];
@@ -366,6 +377,37 @@ export class MCPAPI {
       response += `💡 **Recommendation:** ${correlation.recommendation}\n\n`;
     } else {
       response += `💡 **Summary:** ${change > 0 ? 'Bullish' : 'Bearish'} trend observed.\n\n`;
+    }
+
+    // Technical Analysis
+    const ta = data.technical_analysis;
+    if (ta && ta.indicators) {
+      response += `📉 **Technical Analysis:**\n`;
+      const inds = ta.indicators;
+
+      // RSI
+      if (inds.rsi) {
+        response += `• **RSI:** ${inds.rsi.value} (${inds.rsi.condition})\n`;
+      }
+
+      // MACD
+      if (inds.macd) {
+        const trendIcon = inds.macd.trend === 'Bullish' ? '🟢' : '🔴';
+        response += `• **MACD:** ${trendIcon} ${inds.macd.trend} (Hist: ${inds.macd.histogram})\n`;
+      }
+
+      // Bollinger
+      if (inds.bollinger_bands) {
+        response += `• **Bollinger:** Width ${inds.bollinger_bands.width_pct}%\n`;
+      }
+
+      // MA
+      if (inds.moving_averages) {
+        const vsSma = inds.moving_averages.price_vs_sma50 === 'Above' ? 'High' : 'Low';
+        response += `• **Trend:** Price is ${inds.moving_averages.price_vs_sma50} SMA50\n`;
+      }
+
+      response += `\n`;
     }
 
     // News Summary & Developments
