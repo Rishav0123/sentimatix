@@ -122,6 +122,17 @@ class MCPChatInterface:
                     }
                 }
         
+        elif any(word in query_lower for word in ["technical", "rsi", "macd", "indicators", "bollinger", "moving average", "ma"]):
+            # Technical Analysis
+            if symbol:
+                return {
+                    "tool_name": "get_technical_analysis",
+                    "parameters": {
+                        "symbol": symbol,
+                        "period_days": 100
+                    }
+                }
+        
         return None
     
     def call_tool(self, tool_name: str, parameters: dict) -> dict:
@@ -218,6 +229,42 @@ class MCPChatInterface:
                 output.append(f"   Relevance: {item.get('match_quality', 'N/A')} ({item.get('relevance_score', 0):.2f})")
                 output.append(f"   Sentiment: {item.get('sentiment_score', 0):.2f}")
                 output.append(f"   URL: {item.get('url', 'N/A')}")
+        
+        elif tool_name == "get_technical_analysis":
+            output.append("📈 TECHNICAL ANALYSIS")
+            output.append("=" * 80)
+            
+            data = result if isinstance(result, dict) else {} # result logic differs sometimes
+            # If result is wrapped
+            if "result" in result:
+                data = result["result"]
+            
+            if "error" in data:
+                output.append(f"❌ Error: {data['error']}")
+            else:
+                output.append(f"Symbol: {data.get('symbol', 'N/A')}")
+                output.append(f"Price: {data.get('price', 'N/A')}")
+                
+                inds = data.get("indicators", {})
+                
+                # RSI
+                if "rsi" in inds:
+                    rsi = inds["rsi"]
+                    output.append(f"\nRSI: {rsi.get('value', 'N/A')} ({rsi.get('condition', 'N/A')})")
+                
+                # MACD
+                if "macd" in inds:
+                    macd = inds["macd"]
+                    output.append(f"MACD: {macd.get('trend', 'N/A')} (Hist: {macd.get('histogram', 'N/A')})")
+                
+                # BB
+                if "bollinger_bands" in inds:
+                    bb = inds["bollinger_bands"]
+                    output.append(f"Bollinger Bands: Upper={bb.get('upper', 'N/A')}, Lower={bb.get('lower', 'N/A')}")
+                
+                # Volatility
+                if "volatility" in inds:
+                    output.append(f"ATR: {inds['volatility'].get('atr', 'N/A')}")
         
         else:
             output.append(json.dumps(data, indent=2))

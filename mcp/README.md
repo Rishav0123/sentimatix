@@ -89,6 +89,7 @@ python client/examples.py
 | `get_news_sentiment` | News + sentiment for symbol | `(AAPL, last 7 days)` |
 | `get_rag_evidence` | Semantic search historical context | `(AAPL, "earnings miss")` |
 | `calculate_correlation` | Correlate sentiment vs price | `(AAPL sentiment, AAPL price)` |
+| `get_technical_analysis` | Indicators (RSI, MACD, BB) | `(AAPL, 100 days)` |
 | `explain_price_change` | Full analysis orchestrator | `(AAPL, last 7 days)` |
 
 ## 📊 Example Query Flow
