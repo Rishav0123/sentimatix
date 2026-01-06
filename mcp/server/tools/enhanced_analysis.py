@@ -54,7 +54,7 @@ class EnhancedAnalysisEngine:
         Args:
             symbol: Stock symbol (e.g., "HDFCBANK")
             period: Time period ("1d", "1w", "1m", "3m", "6m", "1y")
-            analysis_type: Type of analysis ("quick", "detailed", "quarterly")
+            analysis_type: Type of analysis ("quick", "detailed", "quarterly", "technical", "fundamental")
             start_date: Optional explicit start date (YYYY-MM-DD)
             end_date: Optional explicit end date (YYYY-MM-DD)
             
@@ -72,6 +72,9 @@ class EnhancedAnalysisEngine:
                 valid_periods = ["1d", "1w", "1m", "3m", "6m", "1y"]
                 if period not in valid_periods:
                     return create_error_response("validation_error", f"Invalid period. Must be one of: {valid_periods}")
+            
+            # DEBUG: Check if get_stock_summary is mocked
+            self.logger.critical(f"DEBUG: get_stock_summary is {get_stock_summary}")
             
             # Determine date range
             if start_date and end_date:
@@ -98,55 +101,65 @@ class EnhancedAnalysisEngine:
             if "error" in stock_summary:
                 return create_error_response("data_error", f"Failed to fetch stock data: {stock_summary['error']}")
             
-            # Fetch more news for theme extraction if needed (top 50)
-            news_data_extensive = get_news_sentiment(symbol, start_date_str, end_date_str, top_n=50)
-            if news_data_extensive and isinstance(news_data_extensive, list) and len(news_data_extensive) > 0 and "error" in news_data_extensive[0]:
-                self.logger.warning(f"Extensive news data fetch failed: {news_data_extensive[0]['error']}")
-                news_data_extensive = []
             
-            # For display purposes, we still use the top_n=10 from the original logic if needed,
-            # but we'll prioritize the intensive set for insights.
-            news_data = news_data_extensive[:10]
-            if news_data and isinstance(news_data, list) and len(news_data) > 0 and "error" in news_data[0]:
-                self.logger.warning(f"News data fetch failed: {news_data[0]['error']}")
-                news_data = []  # Continue without news data
-            
-            sentiment_aggregate = get_sentiment_aggregate(symbol, start_date_str, end_date_str)
-            if "error" in sentiment_aggregate:
-                self.logger.warning(f"Sentiment aggregate failed: {sentiment_aggregate['error']}")
-                sentiment_aggregate = {"avg_sentiment": 0.0, "total_articles": 0}
-            
-            # Fetch RAG evidence for additional context
+            # Initialize optional data containers
+            news_data = []
+            news_data_extensive = []
+            sentiment_aggregate = {"avg_sentiment": 0.0, "total_articles": 0}
             rag_evidence = []
-            try:
-                # Use a specific query for RAG
-                price_dir = "increase" if stock_summary.get("change_percent", 0) >= 0 else "decrease"
-                rag_query = f"{symbol} stock price {price_dir} movement analysis reasons factors earnings news developments"
-                rag_evidence = get_rag_evidence(symbol, start_date_str, end_date_str, rag_query, top_k=5)
-                # Filter out error/status messages if any
-                if rag_evidence and isinstance(rag_evidence, list) and "error" in rag_evidence[0]:
-                    rag_evidence = []
-            except Exception as e:
-                self.logger.warning(f"RAG search failed: {e}")
-            
-            # Calculate correlation if we have sufficient data
             correlation_data = None
-            try:
-                correlation_result = calculate_sentiment_price_correlation(symbol, start_date_str, end_date_str)
-                if correlation_result and "error" not in correlation_result:
-                    correlation_data = correlation_result
-            except Exception as e:
-                self.logger.warning(f"Correlation calculation failed: {e}")
             
+            # Fetch Fundamental Data (News, Sentiment, RAG, Correlation)
+            if analysis_type != "technical":
+                # Fetch more news for theme extraction if needed (top 50)
+                news_data_extensive = get_news_sentiment(symbol, start_date_str, end_date_str, top_n=50)
+                if news_data_extensive and isinstance(news_data_extensive, list) and len(news_data_extensive) > 0 and "error" in news_data_extensive[0]:
+                    self.logger.warning(f"Extensive news data fetch failed: {news_data_extensive[0]['error']}")
+                    news_data_extensive = []
+                
+                # For display purposes, we still use the top_n=10 from the original logic if needed,
+                # but we'll prioritize the intensive set for insights.
+                news_data = news_data_extensive[:10]
+                if news_data and isinstance(news_data, list) and len(news_data) > 0 and "error" in news_data[0]:
+                    self.logger.warning(f"News data fetch failed: {news_data[0]['error']}")
+                    news_data = []  # Continue without news data
+                
+                sentiment_aggregate_result = get_sentiment_aggregate(symbol, start_date_str, end_date_str)
+                if "error" not in sentiment_aggregate_result:
+                    sentiment_aggregate = sentiment_aggregate_result
+                else:
+                    self.logger.warning(f"Sentiment aggregate failed: {sentiment_aggregate_result['error']}")
+                
+                # Fetch RAG evidence for additional context
+                try:
+                    # Use a specific query for RAG
+                    price_dir = "increase" if stock_summary.get("change_percent", 0) >= 0 else "decrease"
+                    rag_query = f"{symbol} stock price {price_dir} movement analysis reasons factors earnings news developments"
+                    rag_evidence = get_rag_evidence(symbol, start_date_str, end_date_str, rag_query, top_k=5)
+                    # Filter out error/status messages if any
+                    if rag_evidence and isinstance(rag_evidence, list) and "error" in rag_evidence[0]:
+                        rag_evidence = []
+                except Exception as e:
+                    self.logger.warning(f"RAG search failed: {e}")
+                
+                # Calculate correlation if we have sufficient data
+                try:
+                    correlation_result = calculate_sentiment_price_correlation(symbol, start_date_str, end_date_str)
+                    if correlation_result and "error" not in correlation_result:
+                        correlation_data = correlation_result
+                except Exception as e:
+                    self.logger.warning(f"Correlation calculation failed: {e}")
+                        
             # Fetch Technical Analysis
             technical_data = None
-            try:
-                # Use standard 100 days for TA
-                ta_result = await get_technical_analysis(symbol, period_days=100)
-                if ta_result and "error" not in ta_result:
-                    technical_data = ta_result
-            except Exception as e:
-                self.logger.warning(f"Technical analysis failed: {e}")
+            if analysis_type != "fundamental":
+                try:
+                    # Use standard 100 days for TA
+                    ta_result = await get_technical_analysis(symbol, period_days=100)
+                    if ta_result and "error" not in ta_result:
+                        technical_data = ta_result
+                except Exception as e:
+                    self.logger.warning(f"Technical analysis failed: {e}")
 
             # Format the data using FormatOptimizer
             formatted_analysis = self._format_single_stock_analysis(
@@ -544,7 +557,7 @@ async def analyze_stock_enhanced(
     Args:
         symbol: Stock symbol (e.g., "HDFCBANK")
         period: Time period ("1d", "1w", "1m", "3m", "6m", "1y")
-        analysis_type: Type of analysis ("quick", "detailed", "quarterly")
+        analysis_type: Type of analysis ("quick", "detailed", "quarterly", "technical", "fundamental")
         start_date: Optional start date
         end_date: Optional end date
         
@@ -589,8 +602,8 @@ ENHANCED_ANALYSIS_TOOLS_SCHEMA = [
                 },
                 "analysis_type": {
                     "type": "string",
-                    "description": "Type of analysis to perform",
-                    "enum": ["quick", "detailed", "quarterly"],
+                    "description": "Type of analysis to perform. Use 'technical' for technical indicators only. Use 'fundamental' for news and sentiment only.",
+                    "enum": ["quick", "detailed", "quarterly", "technical", "fundamental"],
                     "default": "detailed"
                 }
             },

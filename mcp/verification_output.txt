@@ -1,0 +1,15 @@
+Starting verification...
+
+--- Test 1: Technical Analysis Only ---
+Technical Analysis Present: True
+News Present: False
+get_technical_analysis called: True
+get_news_sentiment called: False
+PASS: Correctly filtered for technical analysis.
+
+--- Test 2: Fundamental Analysis Only ---
+Technical Analysis Present: False
+News Present: True
+get_technical_analysis called: False
+get_news_sentiment called: True
+PASS: Correctly filtered for fundamental analysis.
