@@ -20,6 +20,7 @@ from .stock_tools import get_stock_summary, get_historical_prices
 from .news_tools import get_news_sentiment, get_sentiment_aggregate
 from .rag_tools import get_rag_evidence
 from .correlation import calculate_sentiment_price_correlation
+from .technical_analysis import get_technical_analysis
 
 logger = logging.getLogger(__name__)
 
@@ -137,9 +138,19 @@ class EnhancedAnalysisEngine:
             except Exception as e:
                 self.logger.warning(f"Correlation calculation failed: {e}")
             
+            # Fetch Technical Analysis
+            technical_data = None
+            try:
+                # Use standard 100 days for TA
+                ta_result = await get_technical_analysis(symbol, period_days=100)
+                if ta_result and "error" not in ta_result:
+                    technical_data = ta_result
+            except Exception as e:
+                self.logger.warning(f"Technical analysis failed: {e}")
+
             # Format the data using FormatOptimizer
             formatted_analysis = self._format_single_stock_analysis(
-                symbol, stock_summary, news_data, sentiment_aggregate, correlation_data, rag_evidence, period
+                symbol, stock_summary, news_data, sentiment_aggregate, correlation_data, rag_evidence, period, technical_data
             )
             
             # Generate insights using InsightGenerator
@@ -219,7 +230,8 @@ class EnhancedAnalysisEngine:
         sentiment_aggregate: Dict[str, Any],
         correlation_data: Optional[Dict[str, Any]],
         rag_evidence: List[Dict[str, Any]],
-        period: str
+        period: str,
+        technical_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Format single stock analysis data using FormatOptimizer."""
         try:
@@ -304,6 +316,7 @@ class EnhancedAnalysisEngine:
                 "sentiment_summary": sentiment_summary.__dict__,
                 "key_events": key_events,
                 "correlation": correlation_formatted,
+                "technical_analysis": technical_data,
                 "symbol": symbol  # For insight generation
             }
             
