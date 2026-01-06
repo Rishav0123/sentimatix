@@ -89,6 +89,7 @@ class StockAnalysis:
     key_events: List[NewsEvent]
     insights: AnalysisInsights
     correlation: Optional[CorrelationData] = None
+    technical_analysis: Optional[Dict[str, Any]] = None
 
 
 @dataclass

@@ -91,6 +91,7 @@ async def explain_price_change(
             "sentiment_aggregate": enhanced_data.get("sentiment_summary", sentiment_aggregate),
             "rag_evidence": enhanced_data.get("key_events", rag_evidence),
             "correlation": enhanced_data.get("correlation"),
+            "technical_analysis": enhanced_data.get("technical_analysis"),
             "insights": enhanced_data.get("insights"), # New summarized insights
             "timestamp": datetime.now().isoformat(),
             "tool_status": {
