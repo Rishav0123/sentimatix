@@ -56,6 +56,10 @@ from server.tools.enhanced_analysis import (
     compare_stocks,
     ENHANCED_ANALYSIS_TOOLS_SCHEMA
 )
+from server.tools.technical_analysis import (
+    get_technical_analysis,
+    TECHNICAL_ANALYSIS_SCHEMA
+)
 
 # Setup logging
 log_dir = Path(LOG_DIR)
@@ -212,7 +216,8 @@ async def list_tools():
         NEWS_TOOLS_SCHEMA +
         RAG_TOOLS_SCHEMA +
         CORRELATION_TOOLS_SCHEMA +
-        ENHANCED_ANALYSIS_TOOLS_SCHEMA
+        ENHANCED_ANALYSIS_TOOLS_SCHEMA +
+        TECHNICAL_ANALYSIS_SCHEMA
     )
     
     return {
@@ -224,7 +229,8 @@ async def list_tools():
             "news_sentiment": 2,
             "rag": 2,
             "correlation": 2,
-            "enhanced_analysis": 2
+            "enhanced_analysis": 2,
+            "technical_analysis": 1
         }
     }
 
@@ -281,6 +287,11 @@ async def call_tool(
             result = calculate_correlation(**args)
         elif tool_name == "calculate_sentiment_price_correlation":
             result = calculate_sentiment_price_correlation(**args)
+
+        # Technical Analysis
+        elif tool_name == "get_technical_analysis":
+            result = await get_technical_analysis(**args)
+        
         
         else:
             raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
