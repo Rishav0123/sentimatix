@@ -13,6 +13,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent / 'utilities'))
 from utilities.load_keywords_scrape import fetch_stock_keywords
 from utilities.store_news_article import store_news_article
+from utilities.check_existing_news import check_existing_news
 from datetime import datetime
 
 # Fallback Google News URL (now secondary option)
