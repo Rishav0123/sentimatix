@@ -15,10 +15,14 @@ def get_supabase_client():
 
 def store_news_article(news_data):
     try:
-        # Use check_existing_news utility for duplicate check
-        if check_existing_news(news_data['title'], news_data['published_at'], news_data['yfin_symbol']):
+        title = news_data.get('title', '')
+        yfin_symbol = news_data.get('yfin_symbol', '')
+        url = news_data.get('url', '')
+
+        # URL-first dedup, falls back to title match internally
+        if check_existing_news(title, yfin_symbol, url):
             return False
-        
+
         supabase = get_supabase_client()
         result = supabase.table('news').insert(news_data).execute()
         return bool(result.data)

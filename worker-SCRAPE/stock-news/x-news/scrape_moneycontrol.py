@@ -9,9 +9,9 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent / 'utilities'))
-from store_news_article import store_news_article
-from get_active_stocks import get_active_stocks
+sys.path.append(str(Path(__file__).parent))
+from utilities.store_news_article import store_news_article
+from utilities.get_active_stocks import get_active_stocks
 from datetime import datetime, UTC
 import time
 import logging
@@ -142,7 +142,7 @@ if __name__ == "__main__":
                     full_datetime = datetime.now(UTC).isoformat()
                 try:
                     news_data = {
-                        "id": id,
+                        "stock_id": id,
                         "title": news['title'],
                         "content": news['description'],
                         "url": news['url'],

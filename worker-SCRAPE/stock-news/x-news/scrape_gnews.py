@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent / 'utilities'))
 from utilities.load_keywords_scrape import fetch_stock_keywords
-from utilities.check_existing_news import check_existing_news
 from utilities.store_news_article import store_news_article
 from datetime import datetime
 
@@ -559,7 +558,7 @@ def main():
                         source_name = source_name.split(' - ')[0]
                     
                     rss_news_data = {
-                        "id": id,
+                        "stock_id": id,
                         "title": title,
                         "content": clean_html_content(article.get('content') or article.get('summary') or ''),
                         "url": article.get('url', ''),  # ACTUAL ARTICLE URL!
@@ -575,9 +574,12 @@ def main():
                     
                     logger.debug(f"Inserting RSS news_data: {rss_news_data}")
                     try:
-                        store_news_article(rss_news_data)
-                        inserted += 1
-                        logger.info(f"✅ Successfully stored RSS article: {title[:50]}...")
+                        if store_news_article(rss_news_data):
+                            inserted += 1
+                            logger.info(f"✅ Successfully stored RSS article: {title[:50]}...")
+                        else:
+                            skipped += 1
+                            logger.debug(f"⏭️ Skipped (duplicate): {title[:50]}...")
                     except Exception as e:
                         logger.error(f"❌ Error storing RSS news article: {e}")
                         logger.error(f"Failed article data: {rss_news_data}")
@@ -656,7 +658,7 @@ def main():
                             logger.error(f"Error parsing Google News published_date: {e}")
                             published_date_str = datetime.now().date().isoformat()
                         gnews_data = {
-                            "id": id,
+                            "stock_id": id,
                             "title": title,
                             "content": None,
                             "url": article.get('url', ''),  # NOTE: These are Google News redirect URLs
@@ -676,8 +678,10 @@ def main():
                             continue
                         logger.debug(f"Inserting Google News data: {gnews_data}")
                         try:
-                            store_news_article(gnews_data)
-                            inserted += 1
+                            if store_news_article(gnews_data):
+                                inserted += 1
+                            else:
+                                skipped += 1
                         except Exception as e:
                             logger.error(f"Network/API error inserting Google News: {e}. Data: {gnews_data}")
                             skipped += 1

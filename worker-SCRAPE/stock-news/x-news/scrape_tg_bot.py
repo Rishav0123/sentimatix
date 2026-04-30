@@ -58,6 +58,7 @@ import logging
 from pathlib import Path
 import asyncio
 import re
+import unicodedata
 import json
 import uuid
 from supabase import create_client, Client
@@ -114,6 +115,23 @@ def clean_title(title):
     title = re.sub(r'\s*[👇⤵️📊🚨⏬]+\s*$', '', title)
     
     return title
+
+def normalize_title(title: str) -> str:
+    """
+    Normalize title for consistent dedup matching across scrape runs.
+    Strips emojis, collapses whitespace/newlines, removes trailing punctuation noise.
+    Ensures the same article isn't re-inserted because its Telegram title had
+    a trailing emoji one time and not the next.
+    """
+    if not title:
+        return title
+    # Remove emoji and non-printable unicode (So=symbols, Cs=surrogates, Cn=unassigned)
+    title = ''.join(c for c in title if unicodedata.category(c) not in ('So', 'Cs', 'Cn'))
+    # Collapse all whitespace and newlines
+    title = ' '.join(title.split())
+    # Strip leading/trailing punctuation noise
+    title = title.strip('.,;:-–—|')
+    return title.strip()
 
 def extract_best_url(message):
     """Extract the best URL using multiple methods with priority"""
@@ -661,6 +679,7 @@ if __name__ == "__main__":
     # Enhanced statistics tracking
     keyword_performance = {}
     stock_performance = {}
+    seen_urls_this_run = set()  # In-run URL dedup to avoid redundant DB checks
 
     for stock in stocks:
         id = stock['id']
@@ -699,15 +718,17 @@ if __name__ == "__main__":
             
             if found > 0:
                 successful_stocks += 1
-                
+            
             scraped_at = datetime.now().isoformat()
             sentiment = None
             sentiment_score = None
             
             for article in news:
-                # Clean title before saving
-                article['title'] = clean_title(article.get('title', ''))
-                article['id'] = id
+                # Normalize + clean title before saving (strips emojis, collapses whitespace)
+                raw_title = article.get('title', '')
+                article['title'] = normalize_title(clean_title(raw_title))
+                article['stock_id'] = id        # FK to stocks table
+                article.pop('id', None)         # Let Supabase auto-generate the news PK
                 article['scraped_at'] = scraped_at
                 article['sentiment'] = sentiment
                 article['sentiment_score'] = sentiment_score
@@ -723,6 +744,15 @@ if __name__ == "__main__":
                 # Remove metadata before storing (starts with _)
                 article_to_store = {k: v for k, v in article.items() if not k.startswith('_')}
                 
+                # In-run URL dedup: skip if we already processed this URL in this session
+                article_url = article_to_store.get('url')
+                if article_url and article_url in seen_urls_this_run:
+                    skipped += 1
+                    logger.debug(f"   ⏭️ In-run duplicate URL skipped: {article_url[:80]}")
+                    continue
+                if article_url:
+                    seen_urls_this_run.add(article_url)
+                
                 # Log article details for monitoring
                 extracted_keywords = article.get('tags', [])
                 matched_stock_keywords = [kw for kw in extracted_keywords if kw in keywords]
@@ -737,6 +767,7 @@ if __name__ == "__main__":
         except Exception as e:
             logger.error(f"Error processing {yfin_symbol}: {e}")
             continue
+
         
         # Track performance statistics
         stock_performance[yfin_symbol] = {

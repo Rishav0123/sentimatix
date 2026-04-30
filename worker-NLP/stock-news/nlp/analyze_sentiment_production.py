@@ -64,25 +64,70 @@ class ProductionSentimentAnalyzer:
         
         return result
 
-    def _score_from_probs(self, prob_dict):
-        """Compute continuous score and label from probabilities"""
-        pos = prob_dict.get('positive', 0.0)
-        neg = prob_dict.get('negative', 0.0)
-        neu = prob_dict.get('neutral', 0.0)
+    def _apply_heuristics(self, text, pos, neg, neu):
+        text_lower = text.lower()
         
-        # Compute score as pos - neg (range: -1 to +1)
-        score = round((pos - neg), 4)
+        pos_patterns = [r'narrower than expected.*loss', r'debt reduction', r'beat.*estimates', r'raised.*guidance', r'better than expected']
+        neg_patterns = [r'missed.*estimates', r'lowered.*guidance', r'wider than expected.*loss']
+        double_neg_patterns = [r'not\s+(?:declining|falling|losing|missing|down|bad|worse)']
         
-        # Determine label by highest probability
-        max_prob = max(pos, neg, neu)
-        if max_prob == pos:
-            label = 'positive'
-        elif max_prob == neg:
-            label = 'negative'
+        for p in pos_patterns:
+            if re.search(p, text_lower):
+                pos += 0.4
+                neg = max(0, neg - 0.2)
+                
+        for p in neg_patterns:
+            if re.search(p, text_lower):
+                neg += 0.4
+                pos = max(0, pos - 0.2)
+                
+        for p in double_neg_patterns:
+            if re.search(p, text_lower):
+                neg = neg * 0.5
+                neu += neg * 0.5
+                
+        total = pos + neg + neu
+        if total > 0:
+            pos /= total
+            neg /= total
+            neu /= total
+            
+        return pos, neg, neu
+
+    def _calculate_advanced_score(self, pos, neg, neu, text):
+        import math
+        
+        is_volatile = False
+        if pos > 0.4 and neg > 0.4:
+            label = 'CONFLICTED'
+            is_volatile = True
         else:
+            max_prob = max(pos, neg, neu)
+            if max_prob == pos:
+                label = 'positive'
+            elif max_prob == neg:
+                label = 'negative'
+            else:
+                label = 'neutral'
+                
+        confidence = max(pos, neg, neu)
+        if confidence < 0.5 and not is_volatile:
             label = 'neutral'
+            
+        raw_score = pos - neg
+        adjusted_score = raw_score * (1 - neu)
         
-        return label, score
+        word_count = len(text.split())
+        length_factor = min(1.0, math.log10(max(10, word_count)) / 2.5)
+        
+        final_score = round(adjusted_score * length_factor, 4)
+        
+        return {
+            "sentiment": label,
+            "sentiment_score": final_score,
+            "confidence": round(confidence, 4),
+            "is_volatile": is_volatile
+        }
 
     def _chunk_text(self, text):
         """Split long text into chunks for better processing"""
@@ -106,41 +151,37 @@ class ProductionSentimentAnalyzer:
         
         return chunks
 
-    def analyze_text(self, text):
-        """Analyze full text and return aggregated sentiment"""
+    def analyze_text_probs(self, text):
+        """Analyze full text and return average probabilities"""
         chunks = self._chunk_text(text)
-        labels = []
-        scores = []
+        pos_list = []
+        neg_list = []
+        neu_list = []
         
         for chunk in chunks:
             try:
                 result = self.sentiment(chunk)
                 prob_dict = self._normalize_scores(result)
-                label, score = self._score_from_probs(prob_dict)
-                labels.append(label)
-                scores.append(score)
+                pos_list.append(prob_dict.get('positive', 0.0))
+                neg_list.append(prob_dict.get('negative', 0.0))
+                neu_list.append(prob_dict.get('neutral', 0.0))
             except Exception as e:
                 logger.error(f"Error analyzing chunk: {e}")
                 continue
         
-        if not scores:
-            return {"sentiment": "neutral", "sentiment_score": 0.0}
+        if not pos_list:
+            return 0.0, 0.0, 1.0
+            
+        avg_pos = sum(pos_list) / len(pos_list)
+        avg_neg = sum(neg_list) / len(neg_list)
+        avg_neu = sum(neu_list) / len(neu_list)
         
-        # Aggregate results
-        mean_score = round(sum(scores) / len(scores), 4)
-        label_counts = Counter(labels)
-        majority_label = label_counts.most_common(1)[0][0]
-        
-        # Use score sign to resolve ties
-        if len(label_counts) > 1 and label_counts.most_common(1)[0][1] == label_counts.most_common(2)[1][1]:
-            if mean_score > 0.05:
-                majority_label = 'positive'
-            elif mean_score < -0.05:
-                majority_label = 'negative'
-            else:
-                majority_label = 'neutral'
-        
-        return {"sentiment": majority_label, "sentiment_score": mean_score}
+        return self._apply_heuristics(text, avg_pos, avg_neg, avg_neu)
+
+    def analyze_text(self, text):
+        """Analyze full text and return advanced sentiment object"""
+        pos, neg, neu = self.analyze_text_probs(text)
+        return self._calculate_advanced_score(pos, neg, neu, text)
 
     def extract_entity_clauses(self, text, entity_name):
         """
@@ -243,26 +284,25 @@ class ProductionSentimentAnalyzer:
         if not contexts:
             logger.warning(f"No context found for entity {entity_name}, using full text")
             return self.analyze_text(text)
+            
+        pos_list = []
+        neg_list = []
+        neu_list = []
         
-        # Analyze each context and aggregate
-        context_results = []
         for context in contexts:
-            result = self.analyze_text(context)
-            context_results.append(result)
-            logger.debug(f"Entity {entity_name} context: '{context[:50]}...' -> {result}")
+            pos, neg, neu = self.analyze_text_probs(context)
+            pos_list.append(pos)
+            neg_list.append(neg)
+            neu_list.append(neu)
+            
+        avg_pos = sum(pos_list) / len(pos_list)
+        avg_neg = sum(neg_list) / len(neg_list)
+        avg_neu = sum(neu_list) / len(neu_list)
         
-        # Aggregate multiple contexts
-        if len(context_results) == 1:
-            return context_results[0]
-        
-        # Multiple contexts: aggregate scores and pick majority label
-        scores = [r['sentiment_score'] for r in context_results]
-        labels = [r['sentiment'] for r in context_results]
-        
-        mean_score = round(sum(scores) / len(scores), 4)
-        majority_label = Counter(labels).most_common(1)[0][0]
-        
-        return {"sentiment": majority_label, "sentiment_score": mean_score}
+        combined_text = " ".join(contexts)
+        result = self._calculate_advanced_score(avg_pos, avg_neg, avg_neu, combined_text)
+        logger.debug(f"Entity {entity_name} combined contexts -> {result}")
+        return result
 
     async def get_unanalyzed_news(self):
         """Get news articles that need sentiment analysis - both sentiment AND sentiment_score must be null"""
@@ -286,7 +326,9 @@ class ProductionSentimentAnalyzer:
                 lambda: self.supabase.table("news")
                 .update({
                     "sentiment": enrichment["sentiment"],
-                    "sentiment_score": enrichment["sentiment_score"]
+                    "sentiment_score": enrichment["sentiment_score"],
+                    "confidence": enrichment.get("confidence"),
+                    "is_volatile": enrichment.get("is_volatile")
                 })
                 .eq("id", news_id)
                 .execute()
@@ -410,7 +452,7 @@ async def test_with_sample_database_records():
         }
     ]
     
-    print("🧪 TESTING WITH DATABASE-LIKE RECORDS")
+    print("[TEST] TESTING WITH DATABASE-LIKE RECORDS")
     print("=" * 60)
     
     for record in sample_records:
@@ -427,7 +469,13 @@ async def test_with_sample_database_records():
         # Analyze sentiment for this specific stock in the article
         sentiment_result = analyzer.analyze_entity(stock_name, full_text)
         
-        print(f"Entity-specific sentiment: {sentiment_result}")
+        label = sentiment_result['sentiment']
+        score = sentiment_result['sentiment_score']
+        conf = sentiment_result.get('confidence', 'N/A')
+        volatile = sentiment_result.get('is_volatile', False)
+        print(f"  Sentiment : {label} ({score:+.4f})")
+        print(f"  Confidence: {conf:.4f}" if isinstance(conf, float) else f"  Confidence: {conf}")
+        print(f"  Volatile  : {volatile}")
         
         # Show the context that was analyzed
         contexts = analyzer.extract_entity_clauses(full_text, stock_name)

@@ -1,4 +1,4 @@
-﻿
+
 
 
 # --- Google OAuth Setup ---
@@ -9,9 +9,10 @@ from fastapi.responses import RedirectResponse
 import secrets
 import os
 # Place Google OAuth endpoints after api_router is defined
-from fastapi import FastAPI, APIRouter, HTTPException, Query, Response, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Query, Response, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from supabase import create_client, Client
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
@@ -95,7 +96,9 @@ api_router = APIRouter(prefix="/api")
 # Create FastAPI app
 app = FastAPI(
     title="Stock Analysis API",
-    docs_url="/docs",
+    version="0.1.0",
+    docs_url="/swagger",
+    redoc_url="/redoc",
     openapi_url="/openapi.json"
 )
 
@@ -2288,6 +2291,13 @@ async def get_premium_market_insights():
 
 # Mount all routes
 app.include_router(api_router)
+from v1_routes import v1_router, get_api_user, get_user_tier
+app.include_router(v1_router)
+
+# Serve the API documentation page
+import os
+docs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'api-docs')
+app.mount("/docs", StaticFiles(directory=docs_path, html=True), name="api-docs")
 
 
 # --- Google OAuth Endpoints ---
@@ -2347,22 +2357,26 @@ async def google_oauth_login_callback(request: StarletteRequest):
         if not user_exists:
             logger.info(f"OAuth login failed: user does not exist: {email}")
             return JSONResponse(status_code=400, content={"error": "No account found for this email. Please sign up first."})
-        # Fetch authentication key from Supabase users table
+        # Fetch authentication key and tier from Supabase users table
         access_token = None
+        user_tier = 'free'
         try:
-            user_row = supabase.table('users').select('authentication_key').eq('email', email).single().execute()
-            if user_row and hasattr(user_row, 'data') and user_row.data and 'authentication_key' in user_row.data:
-                access_token = user_row.data['authentication_key']
-            elif user_row and isinstance(user_row, dict) and 'data' in user_row and user_row['data'] and 'authentication_key' in user_row['data']:
-                access_token = user_row['data']['authentication_key']
+            user_row = supabase.table('users').select('authentication_key, tier').eq('email', email).single().execute()
+            if user_row and hasattr(user_row, 'data') and user_row.data:
+                access_token = user_row.data.get('authentication_key')
+                user_tier = user_row.data.get('tier', 'free')
+            elif user_row and isinstance(user_row, dict) and 'data' in user_row and user_row['data']:
+                access_token = user_row['data'].get('authentication_key')
+                user_tier = user_row['data'].get('tier', 'free')
         except Exception as e:
-            logger.error(f"Error fetching authentication_key from users table: {str(e)}")
+            logger.error(f"Error fetching auth data from users table: {str(e)}")
             access_token = None
-        # Instead of redirect and cookie, return access_token in JSON
+            
+        # Return access_token via Redirect to /docs
         if access_token:
-            return {"access_token": access_token, "authenticated": True}
+            return RedirectResponse(url=f"/docs/#key={access_token}&tier={user_tier}", status_code=303)
         else:
-            return {"authenticated": False, "error": "No authentication key found."}
+            return JSONResponse(status_code=400, content={"error": "No authentication key found."})
     except Exception as e:
         logger.error(f"Google OAuth login error: {str(e)}")
         return JSONResponse(status_code=400, content={"error": "Google authentication failed.", "details": str(e)})
@@ -2416,30 +2430,605 @@ async def google_oauth_signup_callback(request: StarletteRequest):
                 logger.error(f"Supabase signup error: {error_msg}")
                 return JSONResponse(status_code=400, content={"error": "Supabase signup failed.", "details": error_msg})
             elif user_obj:
-                logger.info(f"Created new user in Supabase: {email}")
+                logger.info(f"Created new user in Supabase Auth: {email}")
             else:
                 logger.warning(f"Supabase signup returned no user and no error for: {email}")
         else:
             logger.warning(f"Unexpected signup_result format for: {email}")
-        # Fetch authentication key from Supabase users table
-        access_token = None
+            
+        # Create user in public.users table
+        import uuid
         try:
-            user_row = supabase.table('users').select('authentication_key').eq('email', email).single().execute()
-            if user_row and hasattr(user_row, 'data') and user_row.data and 'authentication_key' in user_row.data:
-                access_token = user_row.data['authentication_key']
-            elif user_row and isinstance(user_row, dict) and 'data' in user_row and user_row['data'] and 'authentication_key' in user_row['data']:
-                access_token = user_row['data']['authentication_key']
+            # First check if they somehow already exist in public.users but not in auth
+            existing = supabase.table('users').select('id').eq('email', email).execute()
+            if not existing.data:
+                supabase.table('users').insert({
+                    'email': email,
+                    'authentication_key': str(uuid.uuid4()),
+                    'tier': 'free'
+                }).execute()
+                logger.info(f"Inserted new user into public.users: {email}")
         except Exception as e:
-            logger.error(f"Error fetching authentication_key from users table: {str(e)}")
+            logger.error(f"Failed to create public.users row: {e}")
+        # Fetch authentication key and tier from Supabase users table
+        access_token = None
+        user_tier = 'free'
+        try:
+            user_row = supabase.table('users').select('authentication_key, tier').eq('email', email).single().execute()
+            if user_row and hasattr(user_row, 'data') and user_row.data:
+                access_token = user_row.data.get('authentication_key')
+                user_tier = user_row.data.get('tier', 'free')
+            elif user_row and isinstance(user_row, dict) and 'data' in user_row and user_row['data']:
+                access_token = user_row['data'].get('authentication_key')
+                user_tier = user_row['data'].get('tier', 'free')
+        except Exception as e:
+            logger.error(f"Error fetching auth data from users table: {str(e)}")
             access_token = None
-        # Instead of redirect and cookie, return access_token in JSON
+            
+        # Return access_token via Redirect to /docs
         if access_token:
-            return {"access_token": access_token, "authenticated": True}
+            return RedirectResponse(url=f"/docs/#key={access_token}&tier={user_tier}", status_code=303)
         else:
-            return {"authenticated": False, "error": "No authentication key found."}
+            return JSONResponse(status_code=400, content={"error": "No authentication key found."})
     except Exception as e:
         logger.error(f"Google OAuth signup error: {str(e)}")
         return JSONResponse(status_code=400, content={"error": "Google authentication failed.", "details": str(e)})
+
+# =============================================================================
+# PHASE 4: SENTIMENT INTELLIGENCE API
+# =============================================================================
+# These endpoints expose all Phase 1-3 work as clean, product-ready REST APIs.
+# Response format: Standardized "Insight Object" for API customers.
+# =============================================================================
+
+import sys, os as _os
+_nlp_path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "worker-NLP", "stock-news", "nlp")
+if _nlp_path not in sys.path:
+    sys.path.insert(0, _nlp_path)
+
+# --- Pydantic Models for the Insight Object ---
+
+class SentimentDetail(BaseModel):
+    label: str                          # positive | negative | neutral | CONFLICTED
+    score: float                        # Reliability-adjusted score (-1 to +1)
+    confidence: Optional[float] = None  # FinBERT confidence (0 to 1)
+    is_volatile: Optional[bool] = None  # True when conflicting signals
+
+class MomentumDetail(BaseModel):
+    sentiment_7d: Optional[float] = None       # Avg sentiment last 7 days
+    sentiment_prev_7d: Optional[float] = None  # Avg sentiment prior 7 days
+    slope: Optional[float] = None              # Week-over-week change
+    label: Optional[str] = None                # improving | stable | declining
+    articles_7d: Optional[int] = None
+    articles_today: Optional[int] = None
+    volume_z_score: Optional[float] = None     # News spike signal
+    volume_alert: Optional[str] = None         # normal | elevated | breaking | quiet
+
+class InsightObject(BaseModel):
+    entity: str                              # Stock name
+    yfin_symbol: str                         # Yahoo Finance ticker
+    sector: Optional[str] = None
+    sentiment: SentimentDetail
+    momentum: Optional[MomentumDetail] = None
+    top_news: Optional[List[Dict[str, Any]]] = None
+    context_clause: Optional[str] = None     # The exact clause analyzed
+    generated_at: str
+
+
+def _volume_alert_label(z: float) -> str:
+    if z is None: return "normal"
+    if z >= 2.0:  return "breaking"
+    if z >= 1.0:  return "elevated"
+    if z <= -1.0: return "quiet"
+    return "normal"
+
+
+# --- Endpoint 1: Single Stock Insight ---
+
+@api_router.get(
+    "/sentiment/stock/{symbol}",
+    response_model=InsightObject,
+    tags=["Sentiment Intelligence"],
+    summary="Get full sentiment insight for a single stock",
+    description="""
+Returns a complete Sentiment Insight Object for a given stock ticker.
+Includes FinBERT sentiment score, confidence, conflict flag, weekly momentum
+slope, news volume Z-score, and the 3 most recent news articles.
+"""
+)
+async def get_stock_sentiment_insight(
+    symbol: str,
+    include_news: bool = Query(True, description="Include top 3 recent news items"),
+    user: dict = Depends(get_api_user),
+    tier: str = Depends(get_user_tier),
+):
+    if tier == 'free':
+        raise HTTPException(status_code=403, detail="Stock sentiment insight requires a Pro or Enterprise subscription.")
+    """Full Insight Object for a single stock."""
+    try:
+        sym = symbol.upper()
+        if not sym.endswith(".NS"):
+            sym = f"{sym}.NS"
+
+        # --- Stock info ---
+        stock_q = supabase.table("stocks").select(
+            "id, stock_name, yfin_symbol, sector, sentiment_7d"
+        ).eq("yfin_symbol", sym).limit(1).execute()
+
+        if not stock_q.data:
+            raise HTTPException(status_code=404, detail=f"Stock {symbol} not found.")
+
+        stock = stock_q.data[0]
+
+        # --- Latest sentiment from news ---
+        news_q = supabase.table("news").select(
+            "id, title, sentiment, sentiment_score, confidence, is_volatile, content, published_at, url"
+        ).eq("yfin_symbol", sym).not_.is_("sentiment_score", "null").order(
+            "published_at", desc=True
+        ).limit(10).execute()
+
+        articles = news_q.data or []
+
+        # Aggregate sentiment from last N articles
+        scored = [a for a in articles if a.get("sentiment_score") is not None]
+        if scored:
+            avg_score   = round(sum(a["sentiment_score"] for a in scored) / len(scored), 4)
+            avg_conf    = round(sum(a["confidence"] for a in scored if a.get("confidence")) / max(1, sum(1 for a in scored if a.get("confidence"))), 4)
+            any_volatile = any(a.get("is_volatile") for a in scored)
+            labels       = [a["sentiment"] for a in scored if a.get("sentiment")]
+            from collections import Counter
+            majority_label = Counter(labels).most_common(1)[0][0] if labels else "neutral"
+            context_clause = scored[0].get("title", "")[:150] if scored else None
+        else:
+            avg_score, avg_conf, any_volatile = 0.0, None, False
+            majority_label, context_clause = "neutral", None
+
+        sentiment = SentimentDetail(
+            label=majority_label,
+            score=avg_score,
+            confidence=avg_conf,
+            is_volatile=any_volatile
+        )
+
+        # --- Momentum from view ---
+        momentum = None
+        try:
+            mom_q = supabase.rpc("get_stock_momentum", {"p_symbol": sym}).execute()
+            if mom_q.data:
+                m = mom_q.data[0]
+                z = float(m.get("volume_z_score") or 0)
+                momentum = MomentumDetail(
+                    sentiment_7d     = float(m.get("sentiment_7d")    or 0),
+                    sentiment_prev_7d= float(m.get("sentiment_prev_7d") or 0),
+                    slope            = float(m.get("momentum_slope")  or 0),
+                    label            = m.get("momentum_label", "stable"),
+                    articles_7d      = int(m.get("articles_7d")      or 0),
+                    articles_today   = int(m.get("articles_today")    or 0),
+                    volume_z_score   = round(z, 2),
+                    volume_alert     = _volume_alert_label(z)
+                )
+        except Exception as me:
+            logger.warning(f"Momentum fetch failed for {sym}: {me}")
+
+        # --- Top news ---
+        top_news = None
+        if include_news and articles:
+            top_news = [
+                {
+                    "title":        a.get("title", ""),
+                    "sentiment":    a.get("sentiment"),
+                    "score":        a.get("sentiment_score"),
+                    "confidence":   a.get("confidence"),
+                    "is_volatile":  a.get("is_volatile"),
+                    "published_at": a.get("published_at"),
+                    "url":          a.get("url"),
+                }
+                for a in articles[:3]
+            ]
+
+        return InsightObject(
+            entity       = stock["stock_name"],
+            yfin_symbol  = stock["yfin_symbol"],
+            sector       = stock.get("sector"),
+            sentiment    = sentiment,
+            momentum     = momentum,
+            top_news     = top_news,
+            context_clause = context_clause,
+            generated_at = datetime.utcnow().isoformat() + "Z"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Sentiment insight error for {symbol}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Endpoint 2: Market-Wide Sentiment Dashboard ---
+
+@api_router.get(
+    "/sentiment/market",
+    tags=["Sentiment Intelligence"],
+    summary="Market-wide sentiment heatmap (all stocks)",
+    description="""
+Returns sentiment scores, momentum slopes, and volume alerts for every
+stock in the watchlist. Sorted by absolute momentum slope descending —
+the most actively moving stocks appear first. Ideal for a dashboard heatmap.
+"""
+)
+async def get_market_sentiment(
+    min_confidence: float = Query(0.0, ge=0.0, le=1.0, description="Filter by minimum confidence score"),
+    alert_only: bool = Query(False, description="Return only stocks with volume alerts (breaking/elevated)"),
+    limit: int = Query(50, ge=1, le=100),
+    user: dict = Depends(get_api_user),
+    tier: str = Depends(get_user_tier),
+):
+    if tier == 'free':
+        raise HTTPException(status_code=403, detail="Market sentiment heatmap requires a Pro or Enterprise subscription.")
+    """Market-wide Sentiment Heatmap."""
+    try:
+        # Pull full momentum view
+        mom_q = supabase.table("v_stock_momentum").select("*").limit(limit).execute()
+        rows  = mom_q.data or []
+
+        # Pull latest sentiment per stock
+        sent_q = supabase.table("stocks").select(
+            "yfin_symbol, stock_name, sector, sentiment_7d"
+        ).not_.is_("sentiment_7d", "null").execute()
+        sent_map = {r["yfin_symbol"]: r for r in (sent_q.data or [])}
+
+        results = []
+        for m in rows:
+            sym = m.get("yfin_symbol", "")
+            z   = float(m.get("volume_z_score") or 0)
+            alert = _volume_alert_label(z)
+
+            if alert_only and alert not in ("breaking", "elevated"):
+                continue
+
+            slope = float(m.get("momentum_slope") or 0)
+            s7d   = float(m.get("sentiment_7d")   or 0)
+
+            results.append({
+                "yfin_symbol":     sym,
+                "stock_name":      m.get("stock_name"),
+                "sector":          sent_map.get(sym, {}).get("sector"),
+                "sentiment_7d":    round(s7d, 4),
+                "momentum_slope":  round(slope, 4),
+                "momentum_label":  m.get("momentum_label", "stable"),
+                "volume_z_score":  round(z, 2),
+                "volume_alert":    alert,
+                "articles_7d":     m.get("articles_7d"),
+                "articles_today":  m.get("articles_today"),
+            })
+
+        # Sort by absolute slope descending
+        results.sort(key=lambda x: abs(x["momentum_slope"]), reverse=True)
+
+        return {
+            "count":        len(results),
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "stocks":       results
+        }
+
+    except Exception as e:
+        logger.error(f"Market sentiment error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Endpoint 3: Recent News Feed with Sentiment ---
+
+@api_router.get(
+    "/sentiment/news",
+    tags=["Sentiment Intelligence"],
+    summary="Recent news feed enriched with sentiment",
+    description="""
+Returns the most recent news articles with full sentiment metadata:
+label, score, confidence, is_volatile. Filterable by stock symbol or sector.
+Ideal for powering a real-time news ticker on a dashboard.
+"""
+)
+async def get_sentiment_news_feed(
+    symbol: Optional[str] = Query(None, description="Filter by yfin_symbol e.g. TCS.NS"),
+    sector: Optional[str] = Query(None, description="Filter by sector e.g. Banking"),
+    sentiment: Optional[str] = Query(None, description="Filter: positive | negative | neutral | CONFLICTED"),
+    volatile_only: bool = Query(False, description="Return only conflicted/volatile articles"),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    user: dict = Depends(get_api_user),
+    tier: str = Depends(get_user_tier),
+):
+    if tier == 'free':
+        raise HTTPException(status_code=403, detail="Enriched sentiment news feed requires a Pro or Enterprise subscription.")
+    """Enriched news feed with sentiment metadata."""
+    try:
+        q = supabase.table("news").select(
+            "id, title, summary, url, source, published_at, "
+            "yfin_symbol, stock_name, sector, "
+            "sentiment, sentiment_score, confidence, is_volatile"
+        ).not_.is_("sentiment_score", "null").order("published_at", desc=True)
+
+        if symbol:
+            sym = symbol.upper()
+            if not sym.endswith(".NS"):
+                sym = f"{sym}.NS"
+            q = q.eq("yfin_symbol", sym)
+
+        if sector:
+            q = q.ilike("sector", f"%{sector}%")
+
+        if sentiment:
+            q = q.eq("sentiment", sentiment.lower())
+
+        if volatile_only:
+            q = q.eq("is_volatile", True)
+
+        result = q.range(offset, offset + limit - 1).execute()
+        articles = result.data or []
+
+        enriched_articles = []
+        for a in articles:
+            # Calculate signal
+            sentiment = a.get("sentiment")
+            if a.get("is_volatile"):
+                signal = "conflicted"
+            elif sentiment == "positive":
+                signal = "bullish"
+            elif sentiment == "negative":
+                signal = "bearish"
+            elif sentiment == "neutral":
+                signal = "neutral"
+            elif sentiment == "CONFLICTED":
+                signal = "conflicted"
+            else:
+                signal = "neutral"
+
+            # Calculate impact tier
+            score = a.get("sentiment_score")
+            conf = a.get("confidence")
+            impact_tier = "low"
+            if score is not None and conf is not None:
+                impact_score = conf * abs(score)
+                if impact_score >= 0.60:
+                    impact_tier = "high"
+                elif impact_score >= 0.30:
+                    impact_tier = "medium"
+
+            a["signal"] = signal
+            a["impact_tier"] = impact_tier
+            enriched_articles.append(a)
+
+        return {
+            "count":        len(enriched_articles),
+            "offset":       offset,
+            "limit":        limit,
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "articles":     enriched_articles
+        }
+
+    except Exception as e:
+        logger.error(f"News feed error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Endpoint 4: Momentum Leaderboard ---
+
+@api_router.get(
+    "/sentiment/momentum/leaderboard",
+    tags=["Sentiment Intelligence"],
+    summary="Top improving and declining stocks by sentiment momentum",
+    description="""
+Returns the top N stocks with the highest positive momentum slope (improving)
+and top N with the highest negative slope (declining). Perfect for a
+'Winners & Losers by Sentiment' widget on a trading dashboard.
+"""
+)
+async def get_momentum_leaderboard(
+    top_n: int = Query(5, ge=1, le=20, description="Number of stocks per side"),
+    user: dict = Depends(get_api_user),
+    tier: str = Depends(get_user_tier),
+):
+    if tier == 'free':
+        raise HTTPException(status_code=403, detail="Momentum leaderboard requires a Pro or Enterprise subscription.")
+    """Momentum Leaderboard: top improving and declining stocks."""
+    try:
+        mom_q = supabase.table("v_stock_momentum").select("*").execute()
+        rows = mom_q.data or []
+
+        improving = sorted(
+            [r for r in rows if float(r.get("momentum_slope") or 0) > 0],
+            key=lambda x: float(x["momentum_slope"]),
+            reverse=True
+        )[:top_n]
+
+        declining = sorted(
+            [r for r in rows if float(r.get("momentum_slope") or 0) < 0],
+            key=lambda x: float(x["momentum_slope"])
+        )[:top_n]
+
+        def fmt(rows):
+            return [
+                {
+                    "yfin_symbol":    r.get("yfin_symbol"),
+                    "stock_name":     r.get("stock_name"),
+                    "sentiment_7d":   round(float(r.get("sentiment_7d") or 0), 4),
+                    "momentum_slope": round(float(r.get("momentum_slope") or 0), 4),
+                    "momentum_label": r.get("momentum_label"),
+                    "volume_z_score": round(float(r.get("volume_z_score") or 0), 2),
+                    "volume_alert":   _volume_alert_label(float(r.get("volume_z_score") or 0)),
+                    "articles_7d":    r.get("articles_7d"),
+                }
+                for r in rows
+            ]
+
+        return {
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "improving":    fmt(improving),
+            "declining":    fmt(declining)
+        }
+
+    except Exception as e:
+        logger.error(f"Momentum leaderboard error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Billing / Razorpay Endpoints ---
+import razorpay
+import hmac
+import hashlib
+import json as _json
+
+_razorpay_key_id     = os.getenv("RAZORPAY_KEY_ID", "")
+_razorpay_key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+_rzp_client = razorpay.Client(auth=(_razorpay_key_id, _razorpay_key_secret))
+
+# ── Step 1: Create a Razorpay order (called by the frontend before opening the modal) ──
+@app.post("/api/billing/create-order")
+async def razorpay_create_order(request: Request):
+    """
+    Expects JSON body: { "authentication_key": "<key>" }
+    Returns: { "order_id", "amount", "currency", "key_id", "email", "name" }
+    """
+    try:
+        body = await request.json()
+        key = body.get("authentication_key", "").strip()
+        if not key:
+            raise HTTPException(status_code=400, detail="authentication_key is required")
+
+        # Verify the key exists and fetch user info
+        user_res = supabase.table('users').select('email, tier').eq('authentication_key', key).single().execute()
+        if not user_res or not hasattr(user_res, 'data') or not user_res.data:
+            raise HTTPException(status_code=401, detail="Invalid API Key")
+
+        user = user_res.data
+        email = user.get('email')
+        tier  = user.get('tier', 'free')
+
+        if tier in ('pro', 'enterprise'):
+            raise HTTPException(status_code=400, detail="You are already on a Pro or Enterprise plan.")
+
+        # ₹999/month = 99900 paise
+        order = _rzp_client.order.create({
+            "amount":   99900,
+            "currency": "INR",
+            "notes": {
+                "authentication_key": key,
+                "email":              email,
+            }
+        })
+
+        return {
+            "order_id": order["id"],
+            "amount":   order["amount"],
+            "currency": order["currency"],
+            "key_id":   _razorpay_key_id,
+            "email":    email,
+            "name":     "Sentimatix",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Razorpay create-order error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Step 2: Verify payment & upgrade tier (called by frontend after payment success) ──
+@app.post("/api/billing/verify-payment")
+async def razorpay_verify_payment(request: Request):
+    """
+    Expects JSON body:
+    {
+      "razorpay_order_id":   "order_xxx",
+      "razorpay_payment_id": "pay_xxx",
+      "razorpay_signature":  "...",
+      "authentication_key":  "<key>"
+    }
+    """
+    try:
+        body = await request.json()
+        order_id   = body.get("razorpay_order_id", "")
+        payment_id = body.get("razorpay_payment_id", "")
+        signature  = body.get("razorpay_signature", "")
+        key        = body.get("authentication_key", "")
+
+        if not all([order_id, payment_id, signature, key]):
+            raise HTTPException(status_code=400, detail="Missing required payment fields")
+
+        # --- HMAC-SHA256 signature verification ---
+        expected_sig = hmac.new(
+            _razorpay_key_secret.encode(),
+            f"{order_id}|{payment_id}".encode(),
+            hashlib.sha256
+        ).hexdigest()
+
+        if not hmac.compare_digest(expected_sig, signature):
+            logger.warning(f"Razorpay signature mismatch for order {order_id}")
+            raise HTTPException(status_code=400, detail="Payment signature verification failed")
+
+        # Verify the key exists
+        user_res = supabase.table('users').select('email').eq('authentication_key', key).single().execute()
+        if not user_res or not hasattr(user_res, 'data') or not user_res.data:
+            raise HTTPException(status_code=401, detail="Invalid API Key")
+
+        email = user_res.data.get('email')
+
+        # Upgrade tier
+        supabase.table('users').update({'tier': 'pro'}).eq('authentication_key', key).execute()
+        logger.info(f"Upgraded user {email} to PRO (order={order_id}, payment={payment_id})")
+
+        return {"status": "success", "tier": "pro", "email": email}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Razorpay verify-payment error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── Step 3: Webhook (server-side fallback from Razorpay Dashboard) ──
+@app.post("/api/billing/webhook")
+async def razorpay_webhook(request: Request):
+    """
+    Razorpay sends webhook events to this URL.
+    Validate with X-Razorpay-Signature header.
+    """
+    payload   = await request.body()
+    sig_header = request.headers.get("x-razorpay-signature", "")
+
+    # Verify signature if secret is configured
+    webhook_secret = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+    if webhook_secret:
+        expected = hmac.new(
+            webhook_secret.encode(),
+            payload,
+            hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(expected, sig_header):
+            logger.warning("Razorpay webhook signature mismatch")
+            raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    try:
+        event = _json.loads(payload)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload")
+
+    event_type = event.get("event", "")
+
+    if event_type == "payment.captured":
+        payment = event.get("payload", {}).get("payment", {}).get("entity", {})
+        email   = payment.get("email")
+        notes   = payment.get("notes", {})
+        api_key = notes.get("authentication_key", "")
+
+        if api_key:
+            supabase.table('users').update({'tier': 'pro'}).eq('authentication_key', api_key).execute()
+            logger.info(f"Webhook: Upgraded {email} to PRO via payment.captured")
+        elif email:
+            supabase.table('users').update({'tier': 'pro'}).eq('email', email).execute()
+            logger.info(f"Webhook: Upgraded {email} to PRO via payment.captured (by email)")
+
+    return {"status": "ok"}
 
 # Run the server when the file is executed directly
 if __name__ == "__main__":

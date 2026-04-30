@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentimatix API — Indian Stock Market Sentiment Intelligence</title>
+  <meta name="description" content="Real-time Indian stock market news, sentiment scores, and price data API. Access NSE stocks, sector sentiment, and AI-powered market insights." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ===== NAVBAR ===== -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="#" class="logo">
+      <span class="logo-icon">📈</span>
+      <span class="logo-text">Sentimatix</span>
+      <span class="logo-badge">API</span>
+    </a>
+    <div class="nav-links">
+      <a href="#docs" class="nav-link active">Documentation</a>
+      <a href="#endpoints" class="nav-link">Endpoints</a>
+      <a href="#pricing" class="nav-link">Pricing</a>
+    </div>
+    <div class="nav-actions" id="nav-auth-section">
+      <button onclick="loginGoogle()" class="btn-ghost">Login</button>
+      <button onclick="signupGoogle()" class="btn-primary">Get Free API Key</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-text">
+      <div class="hero-badge">🇮🇳 NSE · BSE · Real-time</div>
+      <h1 class="hero-title">
+        Indian Stock Market<br/>
+        <span class="gradient-text">Sentiment API</span>
+      </h1>
+      <p class="hero-desc">
+        Access real-time news sentiment, stock prices, sector analysis, and AI-powered market intelligence for 200+ NSE-listed companies — all in one REST API.
+      </p>
+      <div class="hero-ctas">
+        <a href="#docs" class="btn-primary btn-lg">View Documentation</a>
+        <button onclick="signupGoogle()" class="btn-ghost btn-lg">Get Free API Key →</button>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num">200+</span><span class="stat-label">NSE Stocks</span></div>
+        <div class="stat"><span class="stat-num">10+</span><span class="stat-label">Sectors</span></div>
+        <div class="stat"><span class="stat-num">Real-time</span><span class="stat-label">Sentiment</span></div>
+        <div class="stat"><span class="stat-num">REST</span><span class="stat-label">JSON API</span></div>
+      </div>
+    </div>
+    <div class="hero-code">
+      <div class="code-header">
+        <div class="code-dots">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <span class="code-title">GET /api/v1/news?limit=2</span>
+        <span class="code-badge">Live</span>
+      </div>
+      <pre class="code-block"><code><span class="json-key">"meta"</span>: {
+  <span class="json-key">"found"</span>: <span class="json-num">4821</span>,
+  <span class="json-key">"returned"</span>: <span class="json-num">2</span>,
+  <span class="json-key">"page"</span>: <span class="json-num">1</span>,
+  <span class="json-key">"limit"</span>: <span class="json-num">2</span>
+},
+<span class="json-key">"data"</span>: [
+  {
+    <span class="json-key">"uuid"</span>: <span class="json-str">"40b41093..."</span>,
+    <span class="json-key">"title"</span>: <span class="json-str">"Reliance Q4 profits surge..."</span>,
+    <span class="json-key">"snippet"</span>: <span class="json-str">"Reliance Industries reported..."</span>,
+    <span class="json-key">"sentiment"</span>: <span class="json-str positive">"positive"</span>,
+    <span class="json-key">"sentiment_score"</span>: <span class="json-num">0.72</span>,
+    <span class="json-key">"entities"</span>: [
+      {
+        <span class="json-key">"symbol"</span>: <span class="json-str">"RELIANCE.NS"</span>
+      }
+    ]
+  }
+]</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FEATURES ===== -->
+<section class="features">
+  <div class="features-inner">
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <h3>NLP Sentiment Analysis</h3>
+      <p>Every news article scored from -1 to +1. Pre-aggregated 7-day and 30-day sentiment per stock and sector.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🚀</div>
+      <div class="feature-title" style="font-weight:600;font-size:18px;margin-bottom:8px;">Fast & Scalable</div>
+      <p style="font-size:15px;line-height:1.5;">Built to handle heavy traffic with sub-100ms response times for all your programmatic trading needs.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔒</div>
+      <div class="feature-title" style="font-weight:600;font-size:18px;margin-bottom:8px;">Tiered Access</div>
+      <p style="font-size:15px;line-height:1.5;">Easily control and monetize your data. Pre-configured Free, Pro, and Enterprise access rules.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== MAIN DOCS LAYOUT ===== -->
+<div class="docs-layout" id="docs">
+
+  <!-- LEFT SIDEBAR (injected by sidebar.js) -->
+  <aside class="sidebar" id="sidebar"></aside>
+
+  <!-- MAIN CONTENT (injected by endpoints.js) -->
+  <main class="content" id="content"></main>
+
+  <!-- RIGHT PANEL (injected by panel.js) -->
+  <aside class="panel" id="panel"></aside>
+
+</div>
+
+<!-- ===== PRICING ===== -->
+<section class="pricing" id="pricing">
+  <div class="pricing-inner">
+    <h2 class="section-title">Simple Pricing</h2>
+    <p class="section-sub">Start free, scale as you grow</p>
+    <div class="pricing-cards">
+      <div class="pricing-card">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">₹0<span>/mo</span></div>
+        <ul class="plan-features">
+          <li>✅ 50 requests/day</li>
+          <li>✅ Basic News API (7-day history)</li>
+          <li>✅ Stocks Directory (Entities)</li>
+          <li>❌ Raw Sentiment Scores</li>
+          <li>❌ Dynamic Entity Joins</li>
+        </ul>
+        <a href="#" class="btn-outline">Get Started</a>
+      </div>
+      <div class="pricing-card featured">
+        <div class="plan-badge">Most Popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">₹999<span>/mo</span></div>
+        <ul class="plan-features">
+          <li>✅ 5,000 requests/day</li>
+          <li>✅ Full History News API</li>
+          <li>✅ Stock & Sector Sentiment</li>
+          <li>✅ Raw Sentiment Scores</li>
+          <li>❌ Dynamic Entity Joins</li>
+        </ul>
+        <button onclick="upgradeToPro()" class="btn-primary">Upgrade to Pro</button>
+      </div>
+      <div class="pricing-card">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">Custom</div>
+        <ul class="plan-features">
+          <li>✅ Unlimited requests</li>
+          <li>✅ All Pro Features</li>
+          <li>✅ Dynamic News Entities Array</li>
+          <li>✅ Dedicated support</li>
+          <li>✅ SLA guarantee</li>
+        </ul>
+        <a href="#" class="btn-outline">Contact Us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="logo-icon">📈</span>
+      <span class="logo-text">Sentimatix</span>
+      <p>Indian stock market sentiment intelligence, powered by NLP.</p>
+    </div>
+    <div class="footer-links">
+      <div class="footer-col">
+        <h4>API</h4>
+        <a href="#docs">Documentation</a>
+        <a href="#endpoints">Endpoints</a>
+        <a href="#pricing">Pricing</a>
+      </div>
+      <div class="footer-col">
+        <h4>Legal</h4>
+        <a href="#">Terms of Service</a>
+        <a href="#">Privacy Policy</a>
+      </div>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <p>© 2026 Sentimatix · Built for Indian markets</p>
+  </div>
+</footer>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="sidebar.js"></script>
+<script src="endpoints.js"></script>
+<script src="panel.js"></script>
+</body>
+</html>
