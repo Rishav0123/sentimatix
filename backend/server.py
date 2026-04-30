@@ -2296,7 +2296,16 @@ app.include_router(v1_router)
 
 # Serve the API documentation page
 import os
+from fastapi.responses import FileResponse
 docs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'api-docs')
+
+# Explicit handlers for /portal and /portal/ — Starlette 1.0 StaticFiles no longer
+# auto-redirects the bare mount path to the trailing-slash version.
+@app.get("/portal", include_in_schema=False)
+@app.get("/portal/", include_in_schema=False)
+async def serve_portal_index():
+    return FileResponse(os.path.join(docs_path, 'index.html'))
+
 app.mount("/portal", StaticFiles(directory=docs_path, html=True), name="api-docs")
 
 
