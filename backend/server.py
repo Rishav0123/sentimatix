@@ -2299,12 +2299,12 @@ import os
 from fastapi.responses import FileResponse
 docs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'api-docs')
 
-# Explicit handlers for /portal and /portal/ — Starlette 1.0 StaticFiles no longer
-# auto-redirects the bare mount path to the trailing-slash version.
+# /portal (no trailing slash) → redirect to /portal/ so the browser's base URL
+# becomes /portal/ and all relative assets (styles.css, panel.js, etc.) resolve
+# to /portal/styles.css etc., which StaticFiles then serves correctly.
 @app.get("/portal", include_in_schema=False)
-@app.get("/portal/", include_in_schema=False)
-async def serve_portal_index():
-    return FileResponse(os.path.join(docs_path, 'index.html'))
+async def redirect_portal():
+    return RedirectResponse(url="/portal/", status_code=301)
 
 app.mount("/portal", StaticFiles(directory=docs_path, html=True), name="api-docs")
 
