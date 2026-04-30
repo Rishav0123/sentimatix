@@ -2297,7 +2297,7 @@ app.include_router(v1_router)
 # Serve the API documentation page
 import os
 docs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'api-docs')
-app.mount("/docs", StaticFiles(directory=docs_path, html=True), name="api-docs")
+app.mount("/portal", StaticFiles(directory=docs_path, html=True), name="api-docs")
 
 
 # --- Google OAuth Endpoints ---
@@ -2372,9 +2372,9 @@ async def google_oauth_login_callback(request: StarletteRequest):
             logger.error(f"Error fetching auth data from users table: {str(e)}")
             access_token = None
             
-        # Return access_token via Redirect to /docs
+        # Return access_token via Redirect to /portal
         if access_token:
-            return RedirectResponse(url=f"/docs/#key={access_token}&tier={user_tier}", status_code=303)
+            return RedirectResponse(url=f"/portal/#key={access_token}&tier={user_tier}", status_code=303)
         else:
             return JSONResponse(status_code=400, content={"error": "No authentication key found."})
     except Exception as e:
@@ -2465,9 +2465,9 @@ async def google_oauth_signup_callback(request: StarletteRequest):
             logger.error(f"Error fetching auth data from users table: {str(e)}")
             access_token = None
             
-        # Return access_token via Redirect to /docs
+        # Return access_token via Redirect to /portal
         if access_token:
-            return RedirectResponse(url=f"/docs/#key={access_token}&tier={user_tier}", status_code=303)
+            return RedirectResponse(url=f"/portal/#key={access_token}&tier={user_tier}", status_code=303)
         else:
             return JSONResponse(status_code=400, content={"error": "No authentication key found."})
     except Exception as e:

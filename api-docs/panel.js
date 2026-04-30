@@ -47,8 +47,8 @@ function renderPanel(endpointId) {
     <div class="panel-card">
       <div class="panel-title">📦 Quick Links</div>
       <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
-        <a href="https://sentimatix.onrender.com/docs" target="_blank" style="color:var(--accent-light)">🔗 Swagger UI (Live Docs)</a>
-        <a href="https://sentimatix.onrender.com/openapi.json" target="_blank" style="color:var(--accent-light)">📄 OpenAPI Spec (JSON)</a>
+        <a href="https://stockify-back.onrender.com/swagger" target="_blank" style="color:var(--accent-light)">🔗 Swagger UI (Live Docs)</a>
+        <a href="https://stockify-back.onrender.com/openapi.json" target="_blank" style="color:var(--accent-light)">📄 OpenAPI Spec (JSON)</a>
         <a href="#pricing" style="color:var(--accent-light)">💳 View Pricing Plans</a>
       </div>
     </div>
