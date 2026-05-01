@@ -32,7 +32,7 @@ with st.sidebar:
         st.warning("⚠️ Running in Demo Mode (No API Key). Showing sample data.")
 
     st.markdown("---")
-    st.markdown("[Get your Live API Key here](https://stockify-back.onrender.com/portal/)")
+    st.markdown("[Get your Live API Key here](https://sentimatix-production.up.railway.app/portal/)")
 
 # --- MOCK DATA FOR DEMO MODE ---
 MOCK_NEWS = {
@@ -116,7 +116,7 @@ def render_locked_feature(feature_name):
     <div class="locked-card">
         <h3>🔒 {feature_name} is a Pro Feature</h3>
         <p>Raw sentiment scores, historical trends, and advanced momentum signals are exclusive to Pro & Enterprise tiers.</p>
-        <p style="margin-top:10px;"><a href="https://stockify-back.onrender.com/portal/#pricing" style="color:#facc15; text-decoration:none; font-weight:bold;">Upgrade to Pro Now →</a></p>
+        <p style="margin-top:10px;"><a href="https://sentimatix-production.up.railway.app/portal/#pricing" style="color:#facc15; text-decoration:none; font-weight:bold;">Upgrade to Pro Now →</a></p>
     </div>
     """, unsafe_allow_html=True)
 
