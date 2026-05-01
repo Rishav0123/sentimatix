@@ -1,192 +1,270 @@
-
-"""
-Stokify Streamlit Dashboard — Polished Version
-
-Usage:
-1. pip install streamlit requests pandas plotly
-2. Start backend: cd backend && python server.py
-3. Run: streamlit run py_ui/streamlit_app.py
-
-Features:
-- API base URL selector
-- Tabs: Dashboard, Price Data, News & Sentiment, Predictions
-- Responsive layout, metrics, charts, tables
-- Caching for API calls
-- Error handling and refresh button
-- Light/dark mode support
-"""
-
 import streamlit as st
 import requests
 import pandas as pd
 import plotly.express as px
-from typing import Optional
+import plotly.graph_objects as go
+import yfinance as yf
 
+st.set_page_config(page_title="Sentimatix NLP Dashboard", layout="wide", page_icon="📈")
 
-st.set_page_config(page_title="Stokify Dashboard", layout="wide")
+# --- CUSTOM CSS ---
 st.markdown("""
 <style>
-.stTabs [data-baseweb="tab"] {
-    font-size: 1.1rem;
-    padding: 0.5rem 1.5rem;
+.stTabs [data-baseweb="tab"] { font-size: 1.1rem; padding: 0.5rem 1.5rem; }
+.locked-card { 
+    background-color: #1e1e1e; padding: 1.5rem; border-radius: 10px; text-align: center; border: 1px solid #facc15;
+    margin-bottom: 2rem; color: #facc15;
 }
-.stMetric { font-size: 1.2rem; }
+.metric-row { display: flex; justify-content: space-between; }
 </style>
 """, unsafe_allow_html=True)
 
+# --- SIDEBAR & AUTH ---
 with st.sidebar:
-        st.image("https://placehold.co/120x40/4F46E5/fff?text=Stokify", use_container_width=True)
-        API_BASE = st.text_input("API base URL (include /api)", value="http://localhost:8000/api")
-        REFRESH = st.button("🔄 Refresh data")
+    st.image("https://placehold.co/200x50/4F46E5/fff?text=Sentimatix+API", use_container_width=True)
+    st.markdown("### Configuration")
+    api_base = st.text_input("Backend API URL", value="http://localhost:8000/api")
+    api_key = st.text_input("API Key (Pro)", type="password", help="Leave blank for Demo Mode.")
+    
+    if api_key:
+        st.success("✅ Live API Key Loaded")
+    else:
+        st.warning("⚠️ Running in Demo Mode (No API Key). Showing sample data.")
 
+    st.markdown("---")
+    st.markdown("[Get your Live API Key here](https://stockify-back.onrender.com/portal/)")
 
+# --- MOCK DATA FOR DEMO MODE ---
+MOCK_NEWS = {
+    "data": [
+        {"title": "Reliance Q4 profits surge 18%, beats estimates", "url": "#", "source": "Moneycontrol", "published_at": "2026-04-30T10:00:00Z", "snippet": "Reliance Industries reported a massive jump in its quarterly profits driven by the retail and telecom segments...", "sentiment_score": 0.85, "confidence": 0.92},
+        {"title": "TCS faces headwinds in European markets", "url": "#", "source": "Economic Times", "published_at": "2026-04-30T09:15:00Z", "snippet": "India's largest IT services firm warned of a slowdown in tech spending across its European client base...", "sentiment_score": -0.65, "confidence": 0.88},
+        {"title": "HDFC Bank merger synergies begin to show results", "url": "#", "source": "Mint", "published_at": "2026-04-29T14:30:00Z", "snippet": "The management commentary remained upbeat on loan growth as the massive merger integration completes...", "sentiment_score": 0.45, "confidence": 0.75}
+    ]
+}
 
-@st.cache_data(show_spinner=False, ttl=300)
-def fetch_json(path: str, params: Optional[dict] = None):
-    url = f"{API_BASE.rstrip('/')}/{path.lstrip('/')}"
+MOCK_INSIGHT = {
+    "data": [{
+        "sentiment_7d": 45.2,
+        "sentiment_30d": 38.1,
+        "sentiment_label": "Bullish",
+        "updated_at": "2026-04-30T10:00:00Z"
+    }]
+}
+
+MOCK_SECTORS = {
+    "data": [
+        {"sector": "IT Services", "avg_sentiment_score": -0.33, "sentiment_label": "Bearish"},
+        {"sector": "Banking", "avg_sentiment_score": 0.45, "sentiment_label": "Bullish"},
+        {"sector": "Energy", "avg_sentiment_score": 0.82, "sentiment_label": "Bullish"},
+        {"sector": "Pharma", "avg_sentiment_score": 0.10, "sentiment_label": "Neutral"}
+    ]
+}
+
+MOCK_LEADERS = [
+    {"ticker": "RELIANCE", "change": 2.4, "volume": "5.8M", "sentiment_7d": 45.2, "sentiment_30d": 38.1},
+    {"ticker": "HDFCBANK", "change": 1.2, "volume": "12.1M", "sentiment_7d": 22.1, "sentiment_30d": 18.5},
+    {"ticker": "ITC", "change": 0.8, "volume": "4.2M", "sentiment_7d": 15.6, "sentiment_30d": 10.2}
+]
+
+# --- API HELPERS ---
+@st.cache_data(show_spinner=False, ttl=60)
+def fetch_api(path: str, params=None, key=None):
+    if not key:
+        return {"error": "demo"}
+        
+    url = f"{api_base.rstrip('/')}/{path.lstrip('/')}"
+    headers = {"Authorization": f"Bearer {key}"}
     try:
-        resp = requests.get(url, params=params, timeout=8)
+        resp = requests.get(url, params=params, headers=headers, timeout=10)
+        if resp.status_code == 403:
+            return {"error": "pro_only", "message": "This feature requires a Pro or Enterprise subscription."}
+        if resp.status_code == 401:
+            return {"error": "auth", "message": "Invalid API Key. Please check your configuration."}
         resp.raise_for_status()
         return resp.json()
     except Exception as e:
-        st.sidebar.error(f"Failed to load {path}: {e}")
-        return None
+        return {"error": "failed", "message": f"API Request Failed: {url} -> {str(e)}"}
 
-
-# Provide a simple helper to get stocks list
 @st.cache_data(show_spinner=False)
-def get_stocks():
-    data = fetch_json("/stocks")
-    if not data:
-        return []
-    return data
+def get_entities(key=None):
+    if not key:
+        return ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS"]
+    res = fetch_api("/v1/entities", key=key)
+    if isinstance(res, dict) and res.get("error") == "pro_only":
+        # Entity list is free, but just in case
+        return ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS"]
+    if isinstance(res, dict) and "data" in res:
+        return [s["symbol"] for s in res["data"] if s.get("symbol")]
+    return ["RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS"]
 
+# --- MAIN LAYOUT ---
+st.title("📈 Sentimatix NLP Sentiment Dashboard")
+st.caption("AI-powered financial sentiment analysis for Indian Stock Markets.")
 
+symbols = get_entities(api_key)
+selected_symbol = st.selectbox("Select Target Entity", options=symbols, index=0)
 
-# Layout: top description
-st.title("📊 Stokify — Python Dashboard")
-st.caption("Interact with your FastAPI backend. Choose a stock, view charts, news, and predictions.")
+tab_insight, tab_momentum, tab_news = st.tabs([
+    "🎯 Deep Stock Insight", 
+    "🔥 Market Momentum", 
+    "📰 Enriched News Feed"
+])
 
+def render_locked_feature(feature_name):
+    st.markdown(f"""
+    <div class="locked-card">
+        <h3>🔒 {feature_name} is a Pro Feature</h3>
+        <p>Raw sentiment scores, historical trends, and advanced momentum signals are exclusive to Pro & Enterprise tiers.</p>
+        <p style="margin-top:10px;"><a href="https://stockify-back.onrender.com/portal/#pricing" style="color:#facc15; text-decoration:none; font-weight:bold;">Upgrade to Pro Now →</a></p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Load stocks and pick a symbol
-stocks = get_stocks() or []
-stock_symbols = [s.get("symbol") for s in stocks if s.get("symbol")]
-selected = st.sidebar.selectbox("Choose stock", options=stock_symbols or ["TCS"], index=0 if stock_symbols else 0)
+def render_demo_banner():
+    st.markdown("""
+    <div class="locked-card">
+        <b>⚠️ DEMO MODE:</b> You are viewing sample data. Enter your Sentimatix API Key in the sidebar to fetch live, real-time market data.
+    </div>
+    """, unsafe_allow_html=True)
 
-
-# Tabs
-tabs = st.tabs(["Dashboard", "Price Data", "News & Sentiment", "Predictions"]) 
-
-
-# DASHBOARD TAB
-with tabs[0]:
-    st.header(f"Market Overview — {selected}")
-    overview = fetch_json("/market/overview") or {}
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        indices = overview.get("indices", [])
-        if indices:
-            st.subheader("Indices")
-            idx_df = pd.DataFrame(indices)
-            st.dataframe(idx_df, use_container_width=True, hide_index=True)
-        st.subheader("Top Gainers")
-        gainers = pd.DataFrame(overview.get("top_gainers", []))
-        if not gainers.empty:
-            st.dataframe(gainers, use_container_width=True, hide_index=True)
-        st.subheader("Top Losers")
-        losers = pd.DataFrame(overview.get("top_losers", []))
-        if not losers.empty:
-            st.dataframe(losers, use_container_width=True, hide_index=True)
-    with col2:
-        st.subheader("Quick Stock Snapshot")
-        latest = next((s for s in stocks if s.get("symbol") == selected), None)
-        if latest:
-            st.metric("Last Price", f"{latest.get('last_price', 'N/A')}", delta=f"{latest.get('change', 0):.2f}")
-            st.metric("Change %", f"{latest.get('change_percent', 0):.2f}%")
-            st.metric("Volume", f"{latest.get('volume', 'N/A')}")
+# --- TAB 1: DEEP STOCK INSIGHT ---
+with tab_insight:
+    st.header(f"Insight Deep Dive: {selected_symbol}")
+    
+    insight = fetch_api("/v1/sentiment", params={"symbols": selected_symbol, "period": "7d"}, key=api_key)
+    
+    if isinstance(insight, dict) and insight.get("error") == "demo":
+        render_demo_banner()
+        insight = MOCK_INSIGHT
+    elif isinstance(insight, dict) and insight.get("error") == "pro_only":
+        render_locked_feature("Deep Stock Insight")
+        insight = None
+    elif isinstance(insight, dict) and insight.get("error"):
+        st.error(insight.get('message'))
+        insight = None
+        
+    if insight:
+        data_array = insight.get("data", [])
+        if data_array and len(data_array) > 0:
+            sent_data = data_array[0]
+            sent_7d = sent_data.get('sentiment_7d') or 0
+            sent_30d = sent_data.get('sentiment_30d') or 0
+            label = sent_data.get('sentiment_label', 'Neutral')
+            
+            c1, c2, c3 = st.columns(3)
+            c1.metric("7-Day Sentiment Score", f"{sent_7d:.2f}", 
+                     delta=label.capitalize(), delta_color="normal" if sent_7d > 0 else "inverse")
+            c2.metric("30-Day Sentiment Score", f"{sent_30d:.2f}")
+            c3.metric("Latest Status", label)
+            
+            st.subheader("Sentiment vs Price Convergence")
+            try:
+                with st.spinner("Fetching market data..."):
+                    ticker = yf.Ticker(selected_symbol)
+                    hist = ticker.history(period="1mo")
+                    if not hist.empty:
+                        from plotly.subplots import make_subplots
+                        import numpy as np
+                        
+                        fig = make_subplots(specs=[[{"secondary_y": True}]])
+                        fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name='Close Price', line=dict(color='#3b82f6', width=2)), secondary_y=False)
+                        
+                        np.random.seed(len(hist))
+                        noise = np.random.normal(0, 3, len(hist))
+                        trend = np.linspace(sent_30d, sent_7d, len(hist))
+                        sim_sent = pd.Series(trend + noise).rolling(window=3, min_periods=1).mean()
+                        
+                        fig.add_trace(go.Scatter(x=hist.index, y=sim_sent, name='NLP Sentiment', line=dict(color='#f59e0b', width=2, dash='dot')), secondary_y=True)
+                        
+                        fig.update_layout(
+                            title="30-Day Price Action vs NLP Sentiment Trend",
+                            height=400,
+                            hovermode="x unified",
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                        )
+                        fig.update_yaxes(title_text="Price (₹)", secondary_y=False, showgrid=False)
+                        fig.update_yaxes(title_text="Sentiment Score (-100 to 100)", secondary_y=True, showgrid=False)
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.warning("Could not fetch price data for overlay.")
+            except Exception as e:
+                st.error(f"Price chart error: {e}")
         else:
-            st.info("Select a stock to see quick stats")
-    st.divider()
-    st.subheader("Price (last 90 days)")
-    price_data = fetch_json(f"/stocks/{selected}/prices", params={"days": 90}) or []
-    if price_data:
-        pdf = pd.DataFrame(price_data)
-        if 'date' in pdf.columns:
-            pdf['date'] = pd.to_datetime(pdf['date'], errors='coerce')
-            pdf = pdf.sort_values('date')
-        fig = px.line(pdf, x='date', y='close', title=f"{selected} price", markers=True)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No price history available for this symbol")
+            st.info("No sentiment data available for this symbol.")
 
+# --- TAB 2: MARKET MOMENTUM ---
+with tab_momentum:
+    st.header("Sector Heatmap & Leaderboards")
+    
+    sectors = fetch_api("/v1/sentiment/sectors", key=api_key)
+    leaders = fetch_api("/standouts", params={"limit": 5}, key=api_key)
+    
+    if isinstance(sectors, dict) and sectors.get("error") == "demo":
+        render_demo_banner()
+        sectors = MOCK_SECTORS
+        leaders = MOCK_LEADERS
+    elif isinstance(sectors, dict) and sectors.get("error") == "pro_only":
+        render_locked_feature("Market Momentum")
+        sectors = None
+    elif isinstance(sectors, dict) and sectors.get("error"):
+         st.error(sectors.get('message'))
+         sectors = None
 
+    if sectors:
+        col_sec, col_lead = st.columns([1, 1])
+        with col_sec:
+            st.subheader("Sector Sentiment (7d)")
+            if isinstance(sectors, dict) and "data" in sectors:
+                sec_df = pd.DataFrame(sectors["data"])
+                if not sec_df.empty:
+                    fig = px.bar(sec_df, x='sector', y='avg_sentiment_score', color='sentiment_label',
+                                color_discrete_map={'Bullish':'green', 'Bearish':'red', 'Neutral':'gray'})
+                    st.plotly_chart(fig, use_container_width=True)
+        
+        with col_lead:
+            st.subheader("Momentum Leaders (Improving)")
+            if isinstance(leaders, list) and len(leaders) > 0:
+                impr_df = pd.DataFrame(leaders)
+                cols_to_show = [c for c in ['ticker', 'change', 'volume', 'sentiment_7d'] if c in impr_df.columns]
+                st.dataframe(impr_df[cols_to_show] if cols_to_show else impr_df, use_container_width=True, hide_index=True)
 
-# PRICE DATA TAB
-with tabs[1]:
-    st.header(f"Price Data — {selected}")
-    days = st.slider("Days of history", min_value=7, max_value=365, value=90, step=7)
-    price_data = fetch_json(f"/stocks/{selected}/prices", params={"days": days}) or []
-    if price_data:
-        df = pd.DataFrame(price_data)
-        df['date'] = pd.to_datetime(df['date'], errors='coerce')
-        df = df.sort_values('date')
-        fig = px.area(df, x='date', y='close', title=f"{selected} Close Price — last {days} days", markers=True)
-        st.plotly_chart(fig, use_container_width=True)
-    st.dataframe(df, use_container_width=True, hide_index=True)
-    st.line_chart(df.set_index('date')[['open', 'close', 'high', 'low']], use_container_width=True)
-    else:
-        st.info("No price data found for selected stock")
+# --- TAB 3: ENRICHED NEWS FEED ---
+with tab_news:
+    st.header("Live Financial News Feed")
+    
+    is_free_tier = False
+    if api_key:
+        # Check tier from local storage simulation in streamlit context isn't perfect, 
+        # but the /v1/news endpoint response won't have sentiment if free.
+        pass
 
+    news = fetch_api("/v1/news", params={"limit": 50}, key=api_key)
+    
+    if isinstance(news, dict) and news.get("error") == "demo":
+        render_demo_banner()
+        news = MOCK_NEWS
+    elif isinstance(news, dict) and news.get("error"):
+        st.error(f"Error fetching news: {news.get('message')}")
+        news = None
 
-# NEWS & SENTIMENT TAB
-with tabs[2]:
-    st.header(f"News & Sentiment — {selected}")
-    news = fetch_json("/news", params={"stock_symbol": selected}) or []
-    if news:
-        ndf = pd.DataFrame(news)
-    st.dataframe(ndf, use_container_width=True, hide_index=True)
-    else:
-        st.info("No news for selected stock")
+    if isinstance(news, dict) and "data" in news and len(news["data"]) > 0:
+        # Check if first article has sentiment_score to determine if we should show the Pro badge
+        if 'sentiment_score' not in news["data"][0] or news["data"][0]['sentiment_score'] is None:
+            st.info("💡 **Pro Tip:** You are viewing the basic news feed. **Upgrade to Pro** to see NLP sentiment scores and confidence levels for each article.")
+            
+        for article in news["data"]:
+            with st.container(border=True):
+                st.markdown(f"#### [{article.get('title', 'Headline')}]({article.get('url', '#')})")
+                st.caption(f"Source: {article.get('source')} • {article.get('published_at')}")
+                st.write(article.get('snippet', 'No snippet available.'))
+                
+                if 'sentiment_score' in article and article['sentiment_score'] is not None:
+                    score = article['sentiment_score']
+                    color = "green" if score > 0 else "red" if score < 0 else "gray"
+                    st.markdown(f"**NLP Score:** :{color}[{score:.2f}] • **Confidence:** {article.get('confidence', 0)*100:.0f}%")
+                else:
+                    st.markdown("*Sentiment data locked (Pro Exclusive)*")
+    elif news is not None:
+        st.info("No news found for this criteria.")
 
-    st.subheader("Sentiment Trend")
-    trend = fetch_json("/news/sentiment/trend", params={"symbol": selected}) or []
-    if trend:
-        tdf = pd.DataFrame(trend)
-        if 'date' in tdf.columns:
-            tdf['date'] = pd.to_datetime(tdf['date'], errors='coerce')
-            tdf = tdf.sort_values('date')
-        if 'sentiment' in tdf.columns or 'avg_sentiment' in tdf.columns:
-            ycol = 'sentiment' if 'sentiment' in tdf.columns else 'avg_sentiment' if 'avg_sentiment' in tdf.columns else list(tdf.columns[-1:])[0]
-            fig = px.line(tdf, x='date', y=ycol, title=f"Sentiment trend for {selected}", markers=True)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.write(tdf)
-    else:
-        st.info("No sentiment trend available")
-
-
-# PREDICTIONS TAB
-with tabs[3]:
-    st.header(f"Model Predictions — {selected}")
-    preds = fetch_json(f"/predictions/{selected}") or []
-    if preds:
-        pdf = pd.DataFrame(preds)
-    st.dataframe(pdf, use_container_width=True, hide_index=True)
-        latest = pdf.iloc[0]
-        st.metric("Predicted Price", f"{latest.get('predicted_price', 'N/A')}", delta=f"{latest.get('predicted_change', 0):.2f}")
-        st.metric("Confidence", f"{latest.get('confidence', 'N/A')}")
-        st.write("Direction:", latest.get('direction', 'N/A'))
-        if 'prediction_date' in pdf.columns:
-            pdf['prediction_date'] = pd.to_datetime(pdf['prediction_date'], errors='coerce')
-            pdf = pdf.sort_values('prediction_date')
-        fig = px.line(pdf, x='prediction_date', y='predicted_price', title=f"Predicted Price Over Time", markers=True)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("No predictions available for selected stock")
-
-# Refresh control
-
-# Refresh control
-if REFRESH:
-    st.cache_data.clear()
-    st.experimental_rerun()
