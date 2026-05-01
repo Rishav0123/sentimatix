@@ -23,7 +23,7 @@ st.markdown("""
 with st.sidebar:
     st.image("https://placehold.co/200x50/4F46E5/fff?text=Sentimatix+API", use_container_width=True)
     st.markdown("### Configuration")
-    api_base = st.text_input("Backend API URL", value="http://localhost:8000/api")
+    api_base = st.text_input("Backend API URL", value="https://sentimatix-production.up.railway.app/api")
     api_key = st.text_input("API Key (Pro)", type="password", help="Leave blank for Demo Mode.")
     
     if api_key:
