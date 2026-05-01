@@ -133,12 +133,15 @@ with tab_insight:
     
     insight = fetch_api("/v1/sentiment", params={"symbols": selected_symbol, "period": "7d"}, key=api_key)
     
+    is_pro_only = False
     if isinstance(insight, dict) and insight.get("error") == "demo":
         render_demo_banner()
         insight = MOCK_INSIGHT
     elif isinstance(insight, dict) and insight.get("error") == "pro_only":
-        render_locked_feature("Deep Stock Insight")
-        insight = None
+        is_pro_only = True
+        st.info("💡 **Free Tier Limit:** Sentiment data is masked. Upgrade to Pro to see actual scores and trends.")
+        # We still want the structure to render, so we mock insight data
+        insight = {"data": [{"sentiment_7d": 0, "sentiment_30d": 0, "sentiment_label": "Neutral"}]}
     elif isinstance(insight, dict) and insight.get("error"):
         st.error(insight.get('message'))
         insight = None
@@ -147,15 +150,20 @@ with tab_insight:
         data_array = insight.get("data", [])
         if data_array and len(data_array) > 0:
             sent_data = data_array[0]
-            sent_7d = sent_data.get('sentiment_7d') or 0
-            sent_30d = sent_data.get('sentiment_30d') or 0
-            label = sent_data.get('sentiment_label', 'Neutral')
             
             c1, c2, c3 = st.columns(3)
-            c1.metric("7-Day Sentiment Score", f"{sent_7d:.2f}", 
-                     delta=label.capitalize(), delta_color="normal" if sent_7d > 0 else "inverse")
-            c2.metric("30-Day Sentiment Score", f"{sent_30d:.2f}")
-            c3.metric("Latest Status", label)
+            if is_pro_only:
+                c1.metric("7-Day Sentiment Score", "🔒 ***")
+                c2.metric("30-Day Sentiment Score", "🔒 ***")
+                c3.metric("Latest Status", "🔒 Hidden")
+            else:
+                sent_7d = sent_data.get('sentiment_7d') or 0
+                sent_30d = sent_data.get('sentiment_30d') or 0
+                label = sent_data.get('sentiment_label', 'Neutral')
+                c1.metric("7-Day Sentiment Score", f"{sent_7d:.2f}", 
+                         delta=label.capitalize(), delta_color="normal" if sent_7d > 0 else "inverse")
+                c2.metric("30-Day Sentiment Score", f"{sent_30d:.2f}")
+                c3.metric("Latest Status", label)
             
             st.subheader("Sentiment vs Price Convergence")
             try:
@@ -169,12 +177,29 @@ with tab_insight:
                         fig = make_subplots(specs=[[{"secondary_y": True}]])
                         fig.add_trace(go.Scatter(x=hist.index, y=hist['Close'], name='Close Price', line=dict(color='#3b82f6', width=2)), secondary_y=False)
                         
-                        np.random.seed(len(hist))
-                        noise = np.random.normal(0, 3, len(hist))
-                        trend = np.linspace(sent_30d, sent_7d, len(hist))
-                        sim_sent = pd.Series(trend + noise).rolling(window=3, min_periods=1).mean()
-                        
-                        fig.add_trace(go.Scatter(x=hist.index, y=sim_sent, name='NLP Sentiment', line=dict(color='#f59e0b', width=2, dash='dot')), secondary_y=True)
+                        if is_pro_only:
+                            sim_sent = pd.Series([0] * len(hist), index=hist.index)
+                            fig.add_trace(go.Scatter(x=hist.index, y=sim_sent, name='NLP Sentiment (Pro Only)', line=dict(color='#f59e0b', width=2, dash='dot')), secondary_y=True)
+                            
+                            fig.add_annotation(
+                                x=hist.index[len(hist)//2],
+                                y=0,
+                                yref="y2",
+                                text="🔒 Upgrade to Pro for actual Sentiment Data",
+                                showarrow=False,
+                                font=dict(color="#facc15", size=14),
+                                bgcolor="rgba(30, 30, 30, 0.8)",
+                                bordercolor="#facc15",
+                                borderwidth=1,
+                                borderpad=4
+                            )
+                        else:
+                            np.random.seed(len(hist))
+                            noise = np.random.normal(0, 3, len(hist))
+                            trend = np.linspace(sent_30d, sent_7d, len(hist))
+                            sim_sent = pd.Series(trend + noise).rolling(window=3, min_periods=1).mean()
+                            
+                            fig.add_trace(go.Scatter(x=hist.index, y=sim_sent, name='NLP Sentiment', line=dict(color='#f59e0b', width=2, dash='dot')), secondary_y=True)
                         
                         fig.update_layout(
                             title="30-Day Price Action vs NLP Sentiment Trend",
