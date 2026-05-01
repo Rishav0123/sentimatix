@@ -278,8 +278,15 @@ async def get_sector_sentiment(
             if stocks_res and hasattr(stocks_res, 'data'):
                 stock_sectors = {s['yfin_symbol']: s.get('sector') for s in stocks_res.data if s.get('sector')}
 
-        if sectors:
-            sec_list = [s.strip().lower() for s in sectors.split(',')]
+        allowed_free_sectors = ['banking', 'it services', 'automobile', 'pharmaceuticals', 'fmcg']
+
+        if tier == 'free':
+            if sectors:
+                sec_list = [s.strip().lower() for s in sectors.split(',') if s.strip().lower() in allowed_free_sectors]
+            else:
+                sec_list = allowed_free_sectors
+        else:
+            sec_list = [s.strip().lower() for s in sectors.split(',')] if sectors else None
 
         sector_stats = {}
         for item in news_data:
@@ -287,8 +294,8 @@ async def get_sector_sentiment(
             sec = stock_sectors.get(symbol)
             if not sec: continue
             
-            # Apply sector filter if specified
-            if sectors and sec.lower() not in sec_list: continue
+            # Apply sector filter if specified (or restricted by free tier)
+            if sec_list is not None and sec.lower() not in sec_list: continue
             
             if sec not in sector_stats:
                 sector_stats[sec] = {
@@ -322,9 +329,6 @@ async def get_sector_sentiment(
                 "sentiment_label": label,
                 "total_articles": stats['positive'] + stats['negative'] + stats['neutral'] + stats['conflicted']
             })
-
-        if tier == 'free':
-            formatted_sectors = formatted_sectors[:5]
 
         return {
             "period": period,
