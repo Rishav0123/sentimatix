@@ -2317,6 +2317,8 @@ app.mount("/portal", StaticFiles(directory=docs_path, html=True), name="api-docs
 async def google_oauth_login(request: StarletteRequest):
     logger.info(f"OAuth login state before redirect (session): {request.session.get('google_oauth_state')}")
     redirect_uri = str(request.url_for('google_oauth_login_callback'))
+    if "railway.app" in redirect_uri:
+        redirect_uri = redirect_uri.replace("http://", "https://")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 # --- Google OAuth Signup Endpoint ---
@@ -2324,6 +2326,8 @@ async def google_oauth_login(request: StarletteRequest):
 async def google_oauth_signup(request: StarletteRequest):
     logger.info(f"OAuth signup state before redirect (session): {request.session.get('google_oauth_state')}")
     redirect_uri = str(request.url_for('google_oauth_signup_callback'))
+    if "railway.app" in redirect_uri:
+        redirect_uri = redirect_uri.replace("http://", "https://")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
