@@ -9,12 +9,12 @@ RUN apt-get update \
 WORKDIR /app
 
 # Copy and install Python dependencies
-COPY backend/requirements.txt ./requirements.txt
+COPY requirements.txt ./requirements.txt
 RUN python -m pip install --upgrade pip setuptools wheel \
     && pip install -r requirements.txt
 
 # Copy backend sources
-COPY backend/ ./
+COPY . ./
 
 # Expose port (can be overridden by Render PORT env var)
 EXPOSE 8080
