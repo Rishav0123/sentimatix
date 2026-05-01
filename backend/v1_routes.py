@@ -261,9 +261,6 @@ async def get_sector_sentiment(
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):
-    if tier == 'free':
-        raise HTTPException(status_code=403, detail="Sector Sentiment endpoint requires Pro or Enterprise tier.")
-        
     try:
         # Calculate start date based on period
         days = 30 if period == '30d' else 7
@@ -325,6 +322,9 @@ async def get_sector_sentiment(
                 "sentiment_label": label,
                 "total_articles": stats['positive'] + stats['negative'] + stats['neutral'] + stats['conflicted']
             })
+
+        if tier == 'free':
+            formatted_sectors = formatted_sectors[:5]
 
         return {
             "period": period,

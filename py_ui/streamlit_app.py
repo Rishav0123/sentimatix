@@ -218,6 +218,8 @@ with tab_momentum:
             if isinstance(sectors, dict) and "data" in sectors:
                 sec_df = pd.DataFrame(sectors["data"])
                 if not sec_df.empty:
+                    if len(sec_df) == 5:
+                        st.info("💡 **Pro Tip:** You are viewing 5 sectors on the Free tier. **Upgrade to Pro** to unlock the full market heat map.")
                     fig = px.bar(sec_df, x='sector', y='avg_sentiment_score', color='sentiment_label',
                                 color_discrete_map={'Bullish':'green', 'Bearish':'red', 'Neutral':'gray'})
                     st.plotly_chart(fig, use_container_width=True)
