@@ -226,7 +226,9 @@ with tab_momentum:
         
         with col_lead:
             st.subheader("Momentum Leaders (Improving)")
-            if isinstance(leaders, list) and len(leaders) > 0:
+            if isinstance(leaders, dict) and leaders.get("error") == "pro_only":
+                render_locked_feature("Momentum Leaders")
+            elif isinstance(leaders, list) and len(leaders) > 0:
                 impr_df = pd.DataFrame(leaders)
                 cols_to_show = [c for c in ['ticker', 'change', 'volume', 'sentiment_7d'] if c in impr_df.columns]
                 st.dataframe(impr_df[cols_to_show] if cols_to_show else impr_df, use_container_width=True, hide_index=True)

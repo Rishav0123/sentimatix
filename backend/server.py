@@ -421,10 +421,19 @@ async def debug_stock_price_mapping():
         logger.error(f"Debug mapping error: {str(e)}")
         return {"error": str(e)}
 
+from v1_routes import get_api_user, get_user_tier
+
 # Define API routes
 @api_router.get("/standouts")
-async def get_standout_stocks(limit: int = Query(4, ge=1, le=10, description="Number of standout stocks to return")):
+async def get_standout_stocks(
+    limit: int = Query(4, ge=1, le=10, description="Number of standout stocks to return"),
+    user: dict = Depends(get_api_user),
+    tier: str = Depends(get_user_tier)
+):
     """Get standout stocks based on significant price movements and sentiment"""
+    if tier == 'free':
+        raise HTTPException(status_code=403, detail="Momentum Leaders endpoint requires Pro or Enterprise tier.")
+        
     try:
         logger.info(f"Fetching {limit} standout stocks")
         
