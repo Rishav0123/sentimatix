@@ -7,9 +7,9 @@
 
 ## Tier Summary
 
-| | Free | Pro (₹999/mo) | Enterprise |
+| | Free | Pro (₹199/mo) | Enterprise |
 |---|---|---|---|
-| **Price** | ₹0 | ₹999/month | Custom |
+| **Price** | ₹0 | ₹199/month | Custom |
 | **Requests/day** | 50 | 5,000 | Unlimited |
 | **News history** | Last 7 days only | Full history | Full history |
 | **Max results per request** | 3 | 100 | 1,000 |

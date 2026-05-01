@@ -2929,9 +2929,9 @@ async def razorpay_create_order(request: Request):
         if tier in ('pro', 'enterprise'):
             raise HTTPException(status_code=400, detail="You are already on a Pro or Enterprise plan.")
 
-        # ₹999/month = 99900 paise
+        # ₹199/month = 19900 paise
         order = _rzp_client.order.create({
-            "amount":   99900,
+            "amount":   19900,
             "currency": "INR",
             "notes": {
                 "authentication_key": key,

@@ -185,7 +185,7 @@ async function upgradeToPro() {
     amount:       orderData.amount,
     currency:     orderData.currency,
     name:         'Sentimatix',
-    description:  'Pro API Subscription — ₹999/month',
+    description:  'Pro API Subscription — ₹199/month',
     order_id:     orderData.order_id,
     prefill: {
       email: orderData.email,
