@@ -2297,7 +2297,7 @@ app.include_router(v1_router)
 # Serve the API documentation page
 import os
 from fastapi.responses import FileResponse
-docs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'api-docs')
+docs_path = os.path.join(os.path.dirname(__file__), 'api-docs')
 
 # /portal (no trailing slash) → redirect to /portal/ so the browser's base URL
 # becomes /portal/ and all relative assets (styles.css, panel.js, etc.) resolve
