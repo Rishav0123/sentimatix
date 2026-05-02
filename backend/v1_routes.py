@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Security
+from fastapi import APIRouter, Depends, HTTPException, Query, Security, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional, List
 import os
 from datetime import datetime, timedelta
 from supabase import create_client, Client
 import logging
+from rapidapi_auth import get_rapidapi_tier, is_rapidapi_request
 
 logger = logging.getLogger(__name__)
 
@@ -15,15 +16,44 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 v1_router = APIRouter(prefix="/api/v1", tags=["API v1"])
 
-security = HTTPBearer()
+# auto_error=False so RapidAPI requests (no Bearer token) are not auto-rejected
+security = HTTPBearer(auto_error=False)
 
-def get_api_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+def get_api_user(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+):
+    """
+    Dual-auth dependency: supports both RapidAPI proxy requests and
+    existing Supabase Bearer token requests in parallel.
+    """
+    # --- Path 1: RapidAPI Proxy Request ---
+    # RapidAPI injects X-RapidAPI-Proxy-Secret; no Bearer token is present.
+    if is_rapidapi_request(request):
+        tier = get_rapidapi_tier(request)  # validates secret, raises 403 if invalid
+        rapidapi_user = request.headers.get("x-rapidapi-user", "rapidapi_anonymous")
+        # Return a synthetic user dict compatible with the rest of the codebase
+        return {
+            "id": f"rapidapi_{rapidapi_user}",
+            "email": f"{rapidapi_user}@rapidapi",
+            "tier": tier,
+            "source": "rapidapi"
+        }
+
+    # --- Path 2: Existing Supabase Bearer Token ---
+    if not credentials:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required. Provide a Bearer token or use the RapidAPI marketplace."
+        )
     token = credentials.credentials
     try:
         response = supabase.table('users').select('*').eq('authentication_key', token).execute()
         if not response.data:
             raise HTTPException(status_code=401, detail="Invalid API Key")
         return response.data[0]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Auth error: {str(e)}")
         raise HTTPException(status_code=401, detail="Authentication failed")
