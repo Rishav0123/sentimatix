@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+# Add the root directory to sys.path
+sys.path.append(str(Path(__file__).parent.parent))
+
 from utilities.get_active_stocks import get_active_stocks
 from utilities.store_news_article import store_news_article
 
@@ -510,7 +515,8 @@ async def scrape_telegram_news(kw=None, keywords_list=None):
     Returns:
         List of article dictionaries with enhanced metadata
     """
-    client = TelegramClient('tg_session', api_id, api_hash)
+    session_path = os.path.join(os.path.dirname(__file__), 'tg_session')
+    client = TelegramClient(session_path, api_id, api_hash)
     await client.start()
     
     from datetime import datetime

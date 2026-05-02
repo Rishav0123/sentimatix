@@ -1,0 +1,12 @@
+services:
+  scraper:
+    build: .
+    container_name: sentimatix-scraper
+    env_file:
+      - .env
+    volumes:
+      - ./logs:/app/logs
+      - ./tg_session.session:/app/tg_session.session
+    restart: unless-stopped
+    # We use a tty to keep the container alive if we want to run commands manually
+    tty: true

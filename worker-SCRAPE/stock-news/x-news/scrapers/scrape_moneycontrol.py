@@ -9,13 +9,16 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent))
+# Add the root directory to sys.path
+sys.path.append(str(Path(__file__).parent.parent))
 from utilities.store_news_article import store_news_article
 from utilities.get_active_stocks import get_active_stocks
 from datetime import datetime, UTC
 import time
 import logging
 from pathlib import Path
+import argparse
+import json
 
 
 # MoneyControl base URL
@@ -27,11 +30,17 @@ BASE_URL = "https://www.moneycontrol.com/company-article"
 def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
     url = f"{BASE_URL}/{company_name}/news/{symbol}"
 
-    # Set up Selenium WebDriver
+    # Set up Selenium WebDriver with optimized flags for headless Linux
     chrome_options = Options()
-    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--disable-extensions")
+    chrome_options.add_argument("--disable-infobars")
+    chrome_options.add_argument("--window-size=1920,1080")
+    chrome_options.add_argument("--blink-settings=imagesEnabled=false")
+    chrome_options.add_argument('--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"')
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
@@ -96,12 +105,21 @@ if __name__ == "__main__":
         ]
     )
     logger = logging.getLogger(__name__)
-    # Fetch active stocks from database
-    stocks = get_active_stocks()
-    if not stocks:
-        logger.info("No active stocks found in database")
-        exit(1)
-    logger.info(f"Found {len(stocks)} active stocks to process")
+    # Fetch active stocks from database OR from command line argument
+    parser = argparse.ArgumentParser(description="Scrape MoneyControl news")
+    parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
+    args = parser.parse_args()
+
+    if args.stocks_json:
+        stocks = json.loads(args.stocks_json)
+        logger.info(f"Processing {len(stocks)} stocks from command line")
+    else:
+        stocks = get_active_stocks()
+        if not stocks:
+            logger.info("No active stocks found in database")
+            exit(1)
+        logger.info(f"Found {len(stocks)} active stocks to process")
+
     for stock in stocks:
         id = stock['id']
         mc_link_1 = stock['mc_link_1']

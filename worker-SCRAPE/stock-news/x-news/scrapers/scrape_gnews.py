@@ -10,11 +10,13 @@ import logging
 import re
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).parent / 'utilities'))
+# Add the root directory to sys.path
+sys.path.append(str(Path(__file__).parent.parent))
 from utilities.load_keywords_scrape import fetch_stock_keywords
 from utilities.store_news_article import store_news_article
 from utilities.check_existing_news import check_existing_news
 from datetime import datetime
+import argparse
 
 # Fallback Google News URL (now secondary option)
 GOOGLE_NEWS_URL = f"https://news.google.com/search?q={{stock}}+finance+india+{{date}}&hl=en-IN&gl=IN&ceid=IN:en"
@@ -425,10 +427,21 @@ def main():
         news_count_per_stock = {}
         all_news = []
         insert_report = {}
-        stocks = fetch_stock_keywords()
-        if not stocks:
-            logger.info("No active stocks found in database")
-            return
+        
+        # Add argparse to handle batches
+        parser = argparse.ArgumentParser(description="Scrape Google News")
+        parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
+        args = parser.parse_args()
+
+        if args.stocks_json:
+            stocks = json.loads(args.stocks_json)
+            logger.info(f"Processing {len(stocks)} stocks from command line")
+        else:
+            stocks = fetch_stock_keywords()
+            if not stocks:
+                logger.info("No active stocks found in database")
+                return
+        
         for stock in stocks:
             id = stock['id']
             yfin_symbol = stock.get('yfin_symbol')

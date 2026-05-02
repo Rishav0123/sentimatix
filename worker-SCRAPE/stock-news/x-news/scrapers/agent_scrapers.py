@@ -8,7 +8,8 @@ from pathlib import Path
 import html
 
 # Add utilities path
-sys.path.append(str(Path(__file__).parent / 'utilities'))
+# Add the root directory to sys.path
+sys.path.append(str(Path(__file__).parent.parent))
 from utilities.get_active_stocks import get_active_stocks
 from utilities.check_existing_news import check_existing_news
 from utilities.store_news_article import store_news_article
