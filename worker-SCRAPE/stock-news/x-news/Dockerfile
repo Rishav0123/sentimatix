@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.11-slim-bookworm
 
 # Install system dependencies for Chrome and Selenium
 RUN apt-get update && apt-get install -y \
@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install -y \
     curl \
     libglib2.0-0 \
     libnss3 \
-    libgconf-2-4 \
     libfontconfig1 \
     libxrender1 \
     libxtst6 \
