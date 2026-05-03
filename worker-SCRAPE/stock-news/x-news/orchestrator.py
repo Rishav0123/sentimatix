@@ -35,10 +35,12 @@ def run_scraper_batch(script_name, stocks_batch, run_id):
     """
     # Create a temporary file to pass the stocks JSON
     temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json')
+    stdout = ""
+    stderr = ""
     try:
         script_path = os.path.join('scrapers', script_name)
-        json.dump(stocks_batch, temp_file)
-        temp_file.close()
+        with open(temp_file.name, 'w') as f:
+            json.dump(stocks_batch, f)
         
         process = subprocess.Popen(
             [sys.executable, script_path, '--stocks-json', temp_file.name, '--run-id', run_id],
@@ -47,9 +49,6 @@ def run_scraper_batch(script_name, stocks_batch, run_id):
             text=True
         )
         stdout, stderr = process.communicate()
-    finally:
-        if os.path.exists(temp_file.name):
-            os.remove(temp_file.name)
         
         metrics = {}
         if "METRICS: " in stdout:
@@ -77,6 +76,12 @@ def run_scraper_batch(script_name, stocks_batch, run_id):
             "message": f"Exception in batch: {str(e)}",
             "metrics": {}
         }
+    finally:
+        if os.path.exists(temp_file.name):
+            try:
+                os.remove(temp_file.name)
+            except:
+                pass
 
 def log_scraper_report(scraper_name, run_id, metrics):
     """Logs the aggregated metrics to the database."""
