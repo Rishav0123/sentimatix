@@ -47,10 +47,10 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
 
     try:
         driver.get(url)
-        WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#mc_mainWrapper .FL.rightCont .MT15.PT10.PB10")))
+        WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#mc_mainWrapper .FL.leftCont .MT15.PT10.PB10")))
 
         headlines = []
-        articles = driver.find_elements(By.CSS_SELECTOR, "#mc_mainWrapper .FL.rightCont .MT15.PT10.PB10")
+        articles = driver.find_elements(By.CSS_SELECTOR, "#mc_mainWrapper .FL.leftCont .MT15.PT10.PB10")
         for article in articles:
             article_url = None
             for elem in article.find_elements(By.XPATH, './/*'):
