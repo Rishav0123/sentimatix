@@ -390,13 +390,20 @@ def save_news(news, filename="article.json"):
 
 
 
-def main():
-    # Setup logging to logs/gnews_{date}.log and error logging to logs/gnews_error_{date}.log
+    # Add argparse to handle batches
+    parser = argparse.ArgumentParser(description="Scrape Google News")
+    parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
+    parser.add_argument("--run-id", type=str, help="Run ID for tracking")
+    args = parser.parse_args()
+
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / f"gnews_{datetime.now().strftime('%Y%m%d')}.log"
-    error_log_file = log_dir / f"gnews_error_{datetime.now().strftime('%Y%m%d')}.log"
-    # Set up logging with UTF-8 encoding for all handlers
+    
+    # Unique log file for this batch
+    batch_suffix = f"_{args.run_id[:8]}" if args.run_id else ""
+    log_file = log_dir / f"gnews_{datetime.now().strftime('%Y%m%d')}{batch_suffix}.log"
+    error_log_file = log_dir / f"gnews_error_{datetime.now().strftime('%Y%m%d')}{batch_suffix}.log"
+    
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
@@ -428,12 +435,6 @@ def main():
         news_count_per_stock = {}
         all_news = []
         insert_report = {}
-        
-        # Add argparse to handle batches
-        parser = argparse.ArgumentParser(description="Scrape Google News")
-        parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
-        parser.add_argument("--run-id", type=str, help="Run ID for tracking")
-        args = parser.parse_args()
 
         if args.stocks_json:
             if os.path.exists(args.stocks_json):
@@ -516,13 +517,6 @@ def main():
                                 matched_keywords.append(kw)
                                 logger.debug(f"✅ Medium keyword match found for '{kw}'")
                                 break
-                            # Also check for partial matches within compound words (e.g., "Axis" in "AxisBank")
-                            elif kw_lower in article_text:
-                                if is_financially_relevant_context(article_text, kw_lower):
-                                    keyword_match = True
-                                    matched_keywords.append(kw)
-                                    logger.debug(f"✅ Partial match found for medium keyword '{kw}' with financial context")
-                                    break
                         
                         # For longer keywords (9+ chars), allow partial matches but verify context
                         else:
