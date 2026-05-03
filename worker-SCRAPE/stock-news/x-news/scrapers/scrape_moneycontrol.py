@@ -58,6 +58,9 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
                     href = elem.get_attribute("href")
                     if href:
                         article_url = href
+            # Skip articles that are not company-specific (generic/sidebar news)
+            if not article_url or "/company-article/" not in article_url:
+                continue
             try:
                 title = article.find_element(By.CSS_SELECTOR, "a.g_14bl strong").text.strip()
                 # Get all <p> tags in the article
