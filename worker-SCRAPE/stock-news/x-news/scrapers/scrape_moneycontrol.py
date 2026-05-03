@@ -56,10 +56,10 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
             for elem in article.find_elements(By.XPATH, './/*'):
                 if elem.tag_name == "a":
                     href = elem.get_attribute("href")
-                    if href:
+                    if href and "moneycontrol.com" in href:
                         article_url = href
-            # Skip articles that are not company-specific (generic/sidebar news)
-            if not article_url or "/company-article/" not in article_url:
+            # Skip if no valid moneycontrol URL found
+            if not article_url:
                 continue
             try:
                 title = article.find_element(By.CSS_SELECTOR, "a.g_14bl strong").text.strip()
