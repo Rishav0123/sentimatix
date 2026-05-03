@@ -678,7 +678,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.stocks_json:
-        stocks = json.loads(args.stocks_json)
+        if os.path.exists(args.stocks_json):
+            with open(args.stocks_json, 'r') as f:
+                stocks = json.load(f)
+        else:
+            stocks = json.loads(args.stocks_json)
         logger.info(f"Processing {len(stocks)} stocks from command line")
     else:
         stocks = get_active_stocks()

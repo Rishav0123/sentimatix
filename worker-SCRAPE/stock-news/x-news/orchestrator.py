@@ -6,6 +6,11 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from datetime import datetime
 from utilities.get_active_stocks import get_active_stocks
+import sys
+import tempfile
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configure logging
 log_dir = Path("logs")
@@ -28,16 +33,23 @@ def run_scraper_batch(script_name, stocks_batch, run_id):
     Runs a specific scraper script for a batch of stocks.
     We pass the stocks as a JSON string to the script.
     """
+    # Create a temporary file to pass the stocks JSON
+    temp_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json')
     try:
         script_path = os.path.join('scrapers', script_name)
-        stocks_json = json.dumps(stocks_batch)
+        json.dump(stocks_batch, temp_file)
+        temp_file.close()
+        
         process = subprocess.Popen(
-            ['python', script_path, '--stocks-json', stocks_json, '--run-id', run_id],
+            [sys.executable, script_path, '--stocks-json', temp_file.name, '--run-id', run_id],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True
         )
         stdout, stderr = process.communicate()
+    finally:
+        if os.path.exists(temp_file.name):
+            os.remove(temp_file.name)
         
         metrics = {}
         if "METRICS: " in stdout:
@@ -69,7 +81,6 @@ def run_scraper_batch(script_name, stocks_batch, run_id):
 def log_scraper_report(scraper_name, run_id, metrics):
     """Logs the aggregated metrics to the database."""
     try:
-        load_dotenv()
         url = os.getenv('SUPABASE_URL')
         key = os.getenv('SUPABASE_KEY')
         supabase = create_client(url, key)
