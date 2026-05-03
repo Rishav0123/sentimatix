@@ -182,7 +182,10 @@ if __name__ == "__main__":
                 timestamp_str = news['timestamp']
                 full_datetime = None
                 try:
-                    time_part, date_part = timestamp_str.split(' | ')
+                    # Handle extra parts like " | Source: Moneycontrol.com"
+                    parts = timestamp_str.split(' | ')
+                    time_part = parts[0]
+                    date_part = parts[1]
                     time_12h = time_part.lower()
                     if 'pm' in time_12h and not time_12h.startswith('12'):
                         hour = int(time_12h.split('.')[0]) + 12
