@@ -57,6 +57,13 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
                 if elem.tag_name == "a":
                     href = elem.get_attribute("href")
                     if href and "moneycontrol.com" in href:
+                        # Skip generic non-financial paths
+                        GENERIC_PATHS = [
+                            '/entertainment/', '/sports/', '/world/', '/education/', 
+                            '/news/trends/', '/news/india/', '/news/politics/', '/opinion/'
+                        ]
+                        if any(path in href.lower() for path in GENERIC_PATHS):
+                            continue
                         article_url = href
             # Skip if no valid moneycontrol URL found
             if not article_url:
