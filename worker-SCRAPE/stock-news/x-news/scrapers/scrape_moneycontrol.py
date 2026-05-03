@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 from utilities.store_news_article import store_news_article
 from utilities.get_active_stocks import get_active_stocks
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import time
 import logging
 from pathlib import Path
@@ -163,7 +163,7 @@ if __name__ == "__main__":
                 except Exception as e:
                     logger.error(f"Error parsing timestamp for article '{news['title']}' with raw timestamp '{timestamp_str}': {e}")
                     # Fallback: use current time as published_at
-                    full_datetime = datetime.now(UTC).isoformat()
+                    full_datetime = datetime.now(timezone.utc).isoformat()
                 try:
                     news_data = {
                         "stock_id": id,
@@ -173,10 +173,10 @@ if __name__ == "__main__":
                         "source": "moneycontrol",
                         "yfin_symbol": yfin_symbol,
                         "published_at": full_datetime,
-                        "scraped_at": datetime.now(UTC).isoformat(),
+                        "scraped_at": datetime.now(timezone.utc).isoformat(),
                         "tags": [stock['mc_link_2'], "news"],
                         "sentiment": None,
-                        "published_date": (datetime.fromisoformat(full_datetime).date().isoformat() if 'T' in full_datetime else datetime.now(UTC).date().isoformat())
+                        "published_date": (datetime.fromisoformat(full_datetime).date().isoformat() if 'T' in full_datetime else datetime.now(timezone.utc).date().isoformat())
                     }
                     logger.debug(news_data)
                     if store_news_article(news_data):
