@@ -47,10 +47,10 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
 
     try:
         driver.get(url)
-        WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, ".MT15.PT10.PB10")))
+        WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#mc_mainWrapper .FL.rightCont .MT15.PT10.PB10")))
 
         headlines = []
-        articles = driver.find_elements(By.CSS_SELECTOR, ".MT15.PT10.PB10")
+        articles = driver.find_elements(By.CSS_SELECTOR, "#mc_mainWrapper .FL.rightCont .MT15.PT10.PB10")
         for article in articles:
             article_url = None
             for elem in article.find_elements(By.XPATH, './/*'):
@@ -86,17 +86,25 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
 
 # Example usage
 if __name__ == "__main__":
-    # Setup logging to logs/moneycontrol_{date}.log
+    # Setup logging with a unique name if run-id is provided to avoid permission issues in parallel batches
+    parser = argparse.ArgumentParser(description="Scrape MoneyControl news")
+    parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
+    parser.add_argument("--run-id", type=str, help="Run ID for tracking")
+    args = parser.parse_args()
+
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / f"moneycontrol_{datetime.now().strftime('%Y%m%d')}.log"
-    # Use UTF-8 encoding for StreamHandler to avoid UnicodeEncodeError
+    
+    # Unique log file for this batch
+    batch_suffix = f"_{args.run_id[:8]}" if args.run_id else ""
+    log_file = log_dir / f"moneycontrol_{datetime.now().strftime('%Y%m%d')}{batch_suffix}.log"
+    
     file_handler = logging.FileHandler(log_file, encoding='utf-8')
     stream_handler = logging.StreamHandler()
     try:
         stream_handler.stream.reconfigure(encoding='utf-8')
     except Exception:
-        pass  # For Python <3.7 or if reconfigure not available
+        pass
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
@@ -106,11 +114,6 @@ if __name__ == "__main__":
         ]
     )
     logger = logging.getLogger(__name__)
-    # Fetch active stocks from database OR from command line argument
-    parser = argparse.ArgumentParser(description="Scrape MoneyControl news")
-    parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
-    parser.add_argument("--run-id", type=str, help="Run ID for tracking")
-    args = parser.parse_args()
 
     if args.stocks_json:
         if os.path.exists(args.stocks_json):
