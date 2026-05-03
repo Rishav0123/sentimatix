@@ -41,35 +41,45 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
     chrome_options.add_argument("--disable-infobars")
     chrome_options.add_argument("--window-size=1920,1080")
     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
-    chrome_options.add_argument('--user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"')
+    chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
     try:
         driver.get(url)
-        WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "#mc_mainWrapper .FL.leftCont .MT15.PT10.PB10")))
+        
+        # Check if we were redirected to the homepage or a generic news page
+        # A valid stock news URL must contain "company-article"
+        if "company-article" not in driver.current_url:
+            print(f"Redirected away from company-article to {driver.current_url}. Skipping to avoid generic news.")
+            return []
 
+        # Wait for the main news links to appear
+        WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a.g_14bl")))
+ 
         headlines = []
-        articles = driver.find_elements(By.CSS_SELECTOR, "#mc_mainWrapper .FL.leftCont .MT15.PT10.PB10")
-        for article in articles:
-            article_url = None
-            for elem in article.find_elements(By.XPATH, './/*'):
-                if elem.tag_name == "a":
-                    href = elem.get_attribute("href")
-                    if href and "moneycontrol.com" in href:
-                        # Skip generic non-financial paths
-                        GENERIC_PATHS = [
-                            '/entertainment/', '/sports/', '/world/', '/education/', 
-                            '/news/trends/', '/news/india/', '/news/politics/', '/opinion/'
-                        ]
-                        if any(path in href.lower() for path in GENERIC_PATHS):
-                            continue
-                        article_url = href
-            # Skip if no valid moneycontrol URL found
-            if not article_url:
-                continue
+        # Find all headline links
+        headline_links = driver.find_elements(By.CSS_SELECTOR, "a.g_14bl")
+        
+        for link in headline_links:
             try:
-                title = article.find_element(By.CSS_SELECTOR, "a.g_14bl strong").text.strip()
+                # The container is usually a parent of the link
+                # We need to find the specific MT15.PT10.PB10 wrapper
+                article = link.find_element(By.XPATH, "./ancestor::div[contains(@class, 'MT15')]")
+                
+                article_url = link.get_attribute("href")
+                if not article_url or "moneycontrol.com" not in article_url:
+                    continue
+                    
+                # Skip generic non-financial paths (double safety)
+                GENERIC_PATHS = [
+                    '/entertainment/', '/sports/', '/world/', '/education/', 
+                    '/news/trends/', '/news/india/', '/news/politics/', '/opinion/'
+                ]
+                if any(path in article_url.lower() for path in GENERIC_PATHS):
+                    continue
+
+                title = link.text.strip()
                 # Get all <p> tags in the article
                 p_tags = article.find_elements(By.TAG_NAME, "p")
                 timestamp = p_tags[0].text.strip() if len(p_tags) > 0 else ""
@@ -142,13 +152,26 @@ if __name__ == "__main__":
     overall_report = {}
     for stock in stocks:
         id = stock['id']
-        mc_link_1 = stock['mc_link_1']
         yfin_symbol = stock['yfin_symbol']
-        mc_link_2 = stock['mc_link_2'].lower().replace(' ', '').replace('.', '')
-        logger.info(f"\nProcessing {mc_link_1} ({mc_link_2})...")
-        headlines = scrape_moneycontrol_news_selenium(mc_link_1, mc_link_2)
+        
+        # Clean both links to ensure they are URL-safe (lowercase, no spaces)
+        link_a = stock['mc_link_1'].lower().replace(' ', '').replace('.', '')
+        link_b = stock['mc_link_2'].lower().replace(' ', '').replace('.', '')
+        
+        # Moneycontrol URL format is: /company-article/<long_company_name>/news/<short_symbol_id>
+        # Because the database has inconsistent parameter ordering (sometimes link_1 is the name, sometimes the symbol),
+        # we can reliably determine which is which by length. The company name is always the longer string.
+        if len(link_a) > len(link_b):
+            company_name = link_a
+            symbol = link_b
+        else:
+            company_name = link_b
+            symbol = link_a
+            
+        logger.info(f"\nProcessing {company_name} ({symbol}) for {yfin_symbol}...")
+        headlines = scrape_moneycontrol_news_selenium(company_name, symbol)
         # Print all found headlines for debugging
-        logger.info(f"All headlines for {mc_link_1}:")
+        logger.info(f"All headlines for {company_name}:")
         for h in headlines:
             logger.info(f"  Title: {h['title']} | Timestamp: {h['timestamp']}")
         if headlines:
