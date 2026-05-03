@@ -136,7 +136,7 @@ if __name__ == "__main__":
         yfin_symbol = stock['yfin_symbol']
         mc_link_2 = stock['mc_link_2'].lower().replace(' ', '').replace('.', '')
         logger.info(f"\nProcessing {mc_link_1} ({mc_link_2})...")
-        headlines = scrape_moneycontrol_news_selenium(mc_link_2, mc_link_1)
+        headlines = scrape_moneycontrol_news_selenium(mc_link_1, mc_link_2)
         # Print all found headlines for debugging
         logger.info(f"All headlines for {mc_link_1}:")
         for h in headlines:
