@@ -2,6 +2,7 @@ import json
 import time
 import re
 import requests
+import os
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 from urllib.parse import unquote
@@ -40,15 +41,20 @@ def search_ddg_for_mc_link(stock_name):
     except Exception as e:
         return None
 
-def run_full_fallback(batch_size=200):
-    # Load the results from the directory matching
-    with open('full_mapping_directory.json', 'r') as f:
-        mapping = json.load(f)
+def run_full_fallback(batch_size=500):
+    base_file = 'full_mapping_directory.json'
+    progress_file = 'full_mapping_with_fallback.json'
     
+    if os.path.exists(progress_file):
+        with open(progress_file, 'r') as f:
+            mapping = json.load(f)
+    else:
+        with open(base_file, 'r') as f:
+            mapping = json.load(f)
+
     missing_stocks = [m for m in mapping if m['Status'] == 'Missing']
-    print(f"Total missing: {len(missing_stocks)}. Processing first {batch_size}...")
+    print(f"Total missing: {len(missing_stocks)}. Processing next batch of {batch_size}...")
     
-    # Only process a batch to be safe
     stocks_to_process = missing_stocks[:batch_size]
     
     updated_count = 0
@@ -65,13 +71,18 @@ def run_full_fallback(batch_size=200):
                 stock['Status'] = "Matched"
                 updated_count += 1
         
-        time.sleep(2.5) # Polite delay for larger batch
+        time.sleep(2.5) # Polite delay
         
-    # Save updated mapping
-    with open('full_mapping_with_fallback.json', 'w') as f:
+        # Save progress every 10 items
+        if updated_count % 10 == 0:
+            with open(progress_file, 'w') as f:
+                json.dump(mapping, f, indent=2)
+                
+    # Final save
+    with open(progress_file, 'w') as f:
         json.dump(mapping, f, indent=2)
     
-    print(f"\nBatch fallback complete! Recovered {updated_count}/{len(stocks_to_process)} stocks.")
+    print(f"\nBatch complete! Successfully recovered {updated_count}/{len(stocks_to_process)} stocks.")
 
 if __name__ == "__main__":
-    run_full_fallback(200) # Start with 200
+    run_full_fallback(500)

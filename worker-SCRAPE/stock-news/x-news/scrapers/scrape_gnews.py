@@ -431,6 +431,7 @@ def main():
         # Add argparse to handle batches
         parser = argparse.ArgumentParser(description="Scrape Google News")
         parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
+        parser.add_argument("--run-id", type=str, help="Run ID for tracking")
         args = parser.parse_args()
 
         if args.stocks_json:
@@ -708,6 +709,11 @@ def main():
             all_news.extend(stock_news)
             insert_report[id] = {"inserted": inserted, "skipped": skipped}
         logger.info(f"\nTOTAL: Found={total_found}, Inserted={total_inserted}, Skipped={total_skipped}")
+        
+        # Output metrics for the orchestrator to capture
+        metrics_summary = {stock['yfin_symbol']: insert_report.get(stock['id'], {}).get('inserted', 0) for stock in stocks}
+        print(f"\nMETRICS: {json.dumps(metrics_summary)}")
+
         logger.info("\nSummary: News articles per stock:")
         for stock_id, count in news_count_per_stock.items():
             logger.info(f"{stock_id}: {count}")

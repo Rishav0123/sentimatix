@@ -108,6 +108,7 @@ if __name__ == "__main__":
     # Fetch active stocks from database OR from command line argument
     parser = argparse.ArgumentParser(description="Scrape MoneyControl news")
     parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
+    parser.add_argument("--run-id", type=str, help="Run ID for tracking")
     args = parser.parse_args()
 
     if args.stocks_json:
@@ -120,6 +121,7 @@ if __name__ == "__main__":
             exit(1)
         logger.info(f"Found {len(stocks)} active stocks to process")
 
+    overall_report = {}
     for stock in stocks:
         id = stock['id']
         mc_link_1 = stock['mc_link_1']
@@ -180,6 +182,11 @@ if __name__ == "__main__":
                 except Exception as e:
                     logger.error(f"Error inserting article '{news['title']}': {e}")
             logger.info(f"Stored {stored_count} new articles, skipped {skipped_count} existing articles")
+            overall_report[yfin_symbol] = stored_count
         else:
             logger.info(f"No news found for {mc_link_1}.")
+            overall_report[yfin_symbol] = 0
         time.sleep(5)
+    
+    # Output metrics for the orchestrator to capture
+    print(f"\nMETRICS: {json.dumps(overall_report)}")

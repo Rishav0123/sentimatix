@@ -670,11 +670,21 @@ if __name__ == "__main__":
         ]
     )
     logger = logging.getLogger(__name__)
+    
+    import argparse
+    parser = argparse.ArgumentParser(description="Scrape Telegram News")
+    parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
+    parser.add_argument("--run-id", type=str, help="Run ID for tracking")
+    args = parser.parse_args()
 
-    stocks = get_active_stocks()
-    if not stocks:
-        logger.info("No active stocks found in database")
-        exit(1)
+    if args.stocks_json:
+        stocks = json.loads(args.stocks_json)
+        logger.info(f"Processing {len(stocks)} stocks from command line")
+    else:
+        stocks = get_active_stocks()
+        if not stocks:
+            logger.info("No active stocks found in database")
+            exit(1)
 
     logger.info(f"Found {len(stocks)} active stocks to process")
     total_found = 0
@@ -824,6 +834,10 @@ if __name__ == "__main__":
         logger.info(f"\n🎉 SUCCESS: Enhanced scraping delivered {total_found} high-quality financial articles!")
     else:
         logger.warning(f"\n⚠️ No articles found - check keywords or channel activity")
+    
+    # Output metrics for the orchestrator to capture
+    metrics_summary = {symbol: perf['inserted'] for symbol, perf in stock_performance.items()}
+    print(f"\nMETRICS: {json.dumps(metrics_summary)}")
             #             inserted += 1
     #         stock_news.extend(news)
     #     news_count_per_stock[id] = len(stock_news)
