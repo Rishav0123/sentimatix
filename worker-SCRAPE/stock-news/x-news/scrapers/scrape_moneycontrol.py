@@ -28,7 +28,7 @@ BASE_URL = "https://www.moneycontrol.com/company-article"
 # Updated function to scrape specific news headlines, timestamps, and descriptions
 # Function to store news in Supabase
 
-def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
+def scrape_moneycontrol_news_selenium(company_name: str, symbol: str, stock_name: str = ""):
     url = f"{BASE_URL}/{company_name}/news/{symbol}"
 
     # Set up Selenium WebDriver with optimized flags for headless Linux
@@ -50,8 +50,30 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str):
         
         # Check if we were redirected to the homepage or a generic news page
         # A valid stock news URL must contain "company-article"
-        if "company-article" not in driver.current_url:
-            print(f"Redirected away from company-article to {driver.current_url}. Skipping to avoid generic news.")
+        current_url = driver.current_url
+        if "company-article" not in current_url:
+            print(f"Redirected away from company-article to {current_url}. Skipping to avoid generic news.")
+            return []
+
+        # Validation: Detect generic template fallback pages
+        # MoneyControl often serves a "Latest News" page with an empty placeholder in the title if the company is not found.
+        page_title = driver.title
+        if "on ," in page_title and ", Results News" in page_title:
+            print(f"Detected generic news fallback (empty title placeholder) for {company_name}. Skipping.")
+            return []
+            
+        # Verify if the slug or stock name is present in the title
+        title_norm = page_title.lower().replace(' ', '')
+        slug_match = company_name.lower() in title_norm or symbol.lower() in title_norm
+        
+        # If we have a stock name, check for it as well
+        name_match = True
+        if stock_name:
+            name_parts = [p.lower() for p in stock_name.split() if len(p) > 2]
+            name_match = any(part in page_title.lower() for part in name_parts)
+            
+        if not slug_match and not name_match:
+            print(f"Page title '{page_title}' does not seem to match company '{stock_name or company_name}'. Skipping to avoid junk news.")
             return []
 
         # Wait for the main news links to appear
@@ -169,7 +191,7 @@ if __name__ == "__main__":
             symbol = link_a
             
         logger.info(f"\nProcessing {company_name} ({symbol}) for {yfin_symbol}...")
-        headlines = scrape_moneycontrol_news_selenium(company_name, symbol)
+        headlines = scrape_moneycontrol_news_selenium(company_name, symbol, stock.get('stock_name', ''))
         # Print all found headlines for debugging
         logger.info(f"All headlines for {company_name}:")
         for h in headlines:
@@ -228,7 +250,7 @@ if __name__ == "__main__":
             logger.info(f"Stored {stored_count} new articles, skipped {skipped_count} existing articles")
             overall_report[yfin_symbol] = stored_count
         else:
-            logger.info(f"No news found for {mc_link_1}.")
+            logger.info(f"No news found for {company_name}.")
             overall_report[yfin_symbol] = 0
         time.sleep(5)
     

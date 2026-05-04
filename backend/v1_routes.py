@@ -7,6 +7,7 @@ from supabase import create_client, Client
 import logging
 from rapidapi_auth import get_rapidapi_tier, is_rapidapi_request
 
+
 logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
@@ -367,3 +368,4 @@ async def get_sector_sentiment(
     except Exception as e:
         logger.error(f"Error in /v1/sentiment/sectors: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+

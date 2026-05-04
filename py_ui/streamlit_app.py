@@ -245,7 +245,7 @@ with tab_momentum:
                 if not sec_df.empty:
                     allowed_free = {'banking', 'it services', 'automobile', 'pharmaceuticals', 'fmcg'}
                     if set(sec_df['sector'].str.lower()).issubset(allowed_free):
-                        st.info("💡 **Free Tier Limit:** You are viewing data for up to 5 default sectors. [**Upgrade to Pro**](https://stockify-back.onrender.com/portal/#pricing) to unlock the complete market heat map.")
+                        st.info("💡 **Free Tier Limit:** You are viewing data for up to 5 default sectors. [**Upgrade to Pro**](https://sentimatix-production.up.railway.app/portal/#pricing) to unlock the complete market heat map.")
                     fig = px.bar(sec_df, x='sector', y='avg_sentiment_score', color='sentiment_label',
                                 color_discrete_map={'Bullish':'green', 'Bearish':'red', 'Neutral':'gray'})
                     st.plotly_chart(fig, use_container_width=True)

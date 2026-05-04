@@ -327,6 +327,8 @@ app.add_middleware(
         # Production origins
         "https://sentimatix.onrender.com",
         "https://stockify-back.onrender.com",
+        "https://rapidapi.com",
+        "https://www.rapidapi.com",
     ],  # NOTE: Removed wildcard '*' for production; add origins explicitly
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
