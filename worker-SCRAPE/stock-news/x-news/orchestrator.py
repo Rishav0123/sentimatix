@@ -148,11 +148,11 @@ def main():
     # log_scraper_report('gnews', run_id, gnews_metrics)
 
     # 3. Parallelize MoneyControl
-    mc_batches = list(chunk_list(all_stocks, 20))
-    logger.info(f"Running MoneyControl in {len(mc_batches)} batches...")
+    mc_batches = list(chunk_list(all_stocks, 5))
+    logger.info(f"Running MoneyControl in {len(mc_batches)} batches (5 stocks each)...")
     
     mc_metrics = {}
-    with ProcessPoolExecutor(max_workers=4) as executor:
+    with ProcessPoolExecutor(max_workers=8) as executor:
         futures = [executor.submit(run_scraper_batch, 'scrape_moneycontrol.py', batch, run_id) for batch in mc_batches]
         for future in as_completed(futures):
             res = future.result()
