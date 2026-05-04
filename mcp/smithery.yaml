@@ -1,0 +1,21 @@
+# Smithery.ai MCP Server Configuration
+# https://smithery.ai/docs/config
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      backendUrl:
+        type: string
+        title: Backend API URL
+        description: "Sentimatix backend base URL (default: production Railway URL)"
+        default: "https://sentimatix-production.up.railway.app/api"
+    required: []
+  commandFunction: |-
+    (config) => ({
+      command: "python",
+      args: ["mcp_stdio.py"],
+      env: {
+        BACKEND_API_URL: config.backendUrl || "https://sentimatix-production.up.railway.app/api"
+      }
+    })

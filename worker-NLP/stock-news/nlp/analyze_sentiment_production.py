@@ -7,6 +7,10 @@ from transformers import pipeline
 import asyncio
 import re
 from collections import Counter
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 def setup_logging():
@@ -27,8 +31,8 @@ logger, log_file = setup_logging()
 logger.info(f"Starting production sentiment analysis, logging to {log_file}")
 
 # Supabase configuration
-SUPABASE_URL = os.environ.get("SUPABASE_URL") or "https://uqvouptulubydignwtkv.supabase.co"
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxdm91cHR1bHVieWRpZ253dGt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MzQ1MTUsImV4cCI6MjA3NTUxMDUxNX0.0PtQ_9FVKzFL6pTVOHFoEZbTk5477-RyeH_XR2B12m8"
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or "https://hdsntducurmhossannue.supabase.co"
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhkc250ZHVjdXJtaG9zc2FubnVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjM0MTAsImV4cCI6MjA3NTUxMDUxNX0.aTghWk2f96wEVkVkmp0QlNoj274RKqJHKGLPu9F226s"
 
 class ProductionSentimentAnalyzer:
     def __init__(self, max_chunk_chars=2000):

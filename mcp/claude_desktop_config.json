@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "sentimatix": {
+      "command": "python",
+      "args": ["d:/sentimatix/mcp/mcp_stdio.py"],
+      "env": {
+        "SUPABASE_URL": "https://uqvouptulubydignwtkv.supabase.co",
+        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVxdm91cHR1bHVieWRpZ253dGt2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5MzQ1MTUsImV4cCI6MjA3NTUxMDUxNX0.0PtQ_9FVKzFL6pTVOHFoEZbTk5477-RyeH_XR2B12m8",
+        "BACKEND_API_URL": "https://sentimatix-production.up.railway.app/api",
+        "MCP_SERVER_HOST": "0.0.0.0",
+        "MCP_SERVER_PORT": "8003",
+        "LOG_LEVEL": "WARNING"
+      }
+    }
+  }
+}
