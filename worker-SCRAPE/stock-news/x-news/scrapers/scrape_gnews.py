@@ -388,8 +388,7 @@ def save_news(news, filename="article.json"):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(news, f, ensure_ascii=False, indent=2)
 
-
-
+def main():
     # Add argparse to handle batches
     parser = argparse.ArgumentParser(description="Scrape Google News")
     parser.add_argument("--stocks-json", type=str, help="JSON string of stocks to process")
