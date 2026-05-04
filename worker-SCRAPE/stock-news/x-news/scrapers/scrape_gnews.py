@@ -25,7 +25,7 @@ except ImportError:
     from agent_scrapers import enhanced_keyword_matching
 
 # Fallback Google News URL (now secondary option)
-GOOGLE_NEWS_URL = f"https://news.google.com/search?q={{stock}}+finance+india+{{date}}&hl=en-IN&gl=IN&ceid=IN:en"
+GOOGLE_NEWS_URL = f"https://news.google.com/search?q={{stock}}+finance+india&hl=en-IN&gl=IN&ceid=IN:en"
 
 # Direct RSS feeds from major Indian financial news sources (PRIMARY METHOD)
 RSS_SOURCES = {
@@ -193,15 +193,22 @@ def fetch_stock_news_direct_rss(keywords, max_articles_per_source=20):
     
     for source_name, rss_url in RSS_SOURCES.items():
         try:
-            # Add timeout and better error handling
-            import socket
-            socket.setdefaulttimeout(10)  # 10 second timeout
+            # Use requests with headers to avoid 403 Forbidden
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+                "Accept": "application/rss+xml, application/xml, text/xml, */*"
+            }
+            response = requests.get(rss_url, headers=headers, timeout=10)
             
-            feed = feedparser.parse(rss_url)
+            if response.status_code != 200:
+                logging.warning(f"Failed to fetch {source_name} (Status {response.status_code}): {rss_url}")
+                continue
+                
+            feed = feedparser.parse(response.text)
             
             # Check if feed was parsed successfully
             if not hasattr(feed, 'entries') or not feed.entries:
-                logging.warning(f"No entries found for {source_name} - {rss_url}")
+                logging.warning(f"No entries found in XML for {source_name} - {rss_url}")
                 continue
                 
         except Exception as e:
@@ -288,9 +295,13 @@ def fetch_stock_news(stock):
     soup = BeautifulSoup(response.text, "html.parser")
     articles = []
     
-    for item in soup.select("article"):
+    # New Google News Structure (2024+)
+    # Articles are in div.IFHyqb or div.m5k28
+    # Titles are in a.JtKRv
+    for item in (soup.select("article") or soup.select("div.IFHyqb") or soup.select("div.m5k28")):
         # Try multiple selectors for title
-        title_tag = (item.select_one("h3 a") or 
+        title_tag = (item.select_one("a.JtKRv") or 
+                    item.select_one("h3 a") or 
                     item.select_one("h4 a") or
                     item.select_one("h3") or
                     item.select_one("h4"))
@@ -333,7 +344,9 @@ def fetch_stock_news(stock):
         # Split source and title using split_source_title
         source, clean_title = split_source_title(title)
         if not source:
-            source = source_from_text or 'gnews'
+            # New structure source selector
+            source_tag = item.select_one("div.vr7PYb")
+            source = source_tag.get_text(strip=True) if source_tag else (source_from_text or 'gnews')
         
         # Use article text as summary if we don't have a good title
         summary = article_text if article_text != title else None
@@ -356,6 +369,7 @@ def fetch_stock_news(stock):
             "title": clean_title,
             "source": source,
             "summary": clean_summary,
+            "content": article_text,
             "url": full_url,
             "published": published_time,
             "scraped_at": datetime.now().isoformat()
@@ -597,7 +611,7 @@ def main():
                         gnews_data = {
                             "stock_id": id,
                             "title": title,
-                            "content": None,
+                            "content": clean_html_content(article.get('content') or article.get('summary') or ''),
                             "url": article.get('url', ''),  # NOTE: These are Google News redirect URLs
                             "source": article.get('source', 'gnews'),
                             "published_at": article.get('published'),
