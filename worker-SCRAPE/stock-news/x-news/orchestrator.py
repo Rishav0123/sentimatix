@@ -90,7 +90,17 @@ def log_scraper_report(scraper_name, run_id, metrics):
         key = os.getenv('SUPABASE_KEY')
         supabase = create_client(url, key)
         
-        total_inserted = sum(metrics.values())
+        total_inserted = 0
+        for val in metrics.values():
+            if isinstance(val, str) and "inserted:" in val:
+                try:
+                    # Extract X from "inserted:X skipped:Y"
+                    count = int(val.split("inserted:")[1].split()[0])
+                    total_inserted += count
+                except:
+                    pass
+            elif isinstance(val, int):
+                total_inserted += val
         
         supabase.table('scraper_reports').insert({
             'scraper_name': scraper_name,
@@ -121,21 +131,21 @@ def main():
     run_id = str(uuid.uuid4())
     logger.info(f"Current Run ID: {run_id}")
 
-    # 2. Parallelize Google News
-    gnews_batches = list(chunk_list(all_stocks, 50))
-    logger.info(f"Running Google News in {len(gnews_batches)} batches...")
+    # 2. Parallelize Google News (Disabled for now)
+    # gnews_batches = list(chunk_list(all_stocks, 50))
+    # logger.info(f"Running Google News in {len(gnews_batches)} batches...")
     
-    gnews_metrics = {}
-    with ProcessPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(run_scraper_batch, 'scrape_gnews.py', batch, run_id) for batch in gnews_batches]
-        for future in as_completed(futures):
-            res = future.result()
-            logger.info(res['message'])
-            if res['metrics']:
-                for sym, count in res['metrics'].items():
-                    gnews_metrics[sym] = gnews_metrics.get(sym, 0) + count
+    # gnews_metrics = {}
+    # with ProcessPoolExecutor(max_workers=10) as executor:
+    #     futures = [executor.submit(run_scraper_batch, 'scrape_gnews.py', batch, run_id) for batch in gnews_batches]
+    #     for future in as_completed(futures):
+    #         res = future.result()
+    #         logger.info(res['message'])
+    #         if res['metrics']:
+    #             for sym, count in res['metrics'].items():
+    #                 gnews_metrics[sym] = gnews_metrics.get(sym, 0) + count
     
-    log_scraper_report('gnews', run_id, gnews_metrics)
+    # log_scraper_report('gnews', run_id, gnews_metrics)
 
     # 3. Parallelize MoneyControl
     mc_batches = list(chunk_list(all_stocks, 20))
@@ -148,8 +158,9 @@ def main():
             res = future.result()
             logger.info(res['message'])
             if res['metrics']:
-                for sym, count in res['metrics'].items():
-                    mc_metrics[sym] = mc_metrics.get(sym, 0) + count
+                for sym, val in res['metrics'].items():
+                    # If it's the new string format, we overwrite (since we shouldn't have duplicate symbols across batches anyway)
+                    mc_metrics[sym] = val
                     
     log_scraper_report('moneycontrol', run_id, mc_metrics)
 

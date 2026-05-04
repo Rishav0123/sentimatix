@@ -54,14 +54,14 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str, stock_name
         current_url = driver.current_url
         if "company-article" not in current_url:
             print(f"Redirected away from company-article to {current_url}. Skipping to avoid generic news.")
-            return []
+            return [], True
 
         # Validation: Detect generic template fallback pages
         # MoneyControl often serves a "Latest News" page with an empty placeholder in the title if the company is not found.
         page_title = driver.title
         if "on ," in page_title and ", Results News" in page_title:
             print(f"Detected generic news fallback (empty title placeholder) for {company_name}. Skipping.")
-            return []
+            return [], True
             
         # Verify if the slug or stock name is present in the title
         title_norm = page_title.lower().replace(' ', '')
@@ -75,7 +75,7 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str, stock_name
             
         if not slug_match and not name_match:
             print(f"Page title '{page_title}' does not seem to match company '{stock_name or company_name}'. Skipping to avoid junk news.")
-            return []
+            return [], True
 
         # Wait for the main news links to appear
         WebDriverWait(driver, 10).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a.g_14bl")))
@@ -138,11 +138,11 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str, stock_name
         else:
             filtered_headlines = headlines
 
-        return filtered_headlines
+        return filtered_headlines, False
 
     except Exception as e:
         print(f"Failed to fetch news for {symbol}: {e}")
-        return []
+        return [], False
 
     finally:
         driver.quit()
@@ -224,12 +224,20 @@ if __name__ == "__main__":
             except Exception as e:
                 logger.error(f"Error parsing keywords for {id}: {e}")
                 
+                
         logger.info(f"\nProcessing {company_name} ({symbol}) for {yfin_symbol}...")
-        headlines = scrape_moneycontrol_news_selenium(company_name, symbol, stock.get('stock_name', ''), keywords)
+        headlines, is_generic = scrape_moneycontrol_news_selenium(company_name, symbol, stock.get('stock_name', ''), keywords)
+        
+        if is_generic:
+            logger.info(f"Marking {yfin_symbol} as generic news.")
+            overall_report[yfin_symbol] = "generic"
+            continue
+
         # Print all found headlines for debugging
         logger.info(f"All headlines for {company_name}:")
         for h in headlines:
             logger.info(f"  Title: {h['title']} | Timestamp: {h['timestamp']}")
+            
         if headlines:
             logger.info(f"Found {len(headlines)} news articles")
             stored_count = 0
@@ -282,10 +290,10 @@ if __name__ == "__main__":
                 except Exception as e:
                     logger.error(f"Error inserting article '{news['title']}': {e}")
             logger.info(f"Stored {stored_count} new articles, skipped {skipped_count} existing articles")
-            overall_report[yfin_symbol] = stored_count
+            overall_report[yfin_symbol] = f"inserted:{stored_count} skipped:{skipped_count}"
         else:
             logger.info(f"No news found for {company_name}.")
-            overall_report[yfin_symbol] = 0
+            overall_report[yfin_symbol] = "inserted:0 skipped:0"
         time.sleep(5)
     
     # Output metrics for the orchestrator to capture
