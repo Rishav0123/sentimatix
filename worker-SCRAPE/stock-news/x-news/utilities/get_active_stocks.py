@@ -15,8 +15,21 @@ def get_supabase_client():
 def get_active_stocks():
     try:
         supabase = get_supabase_client()
-        response = supabase.table('stocks').select('*').eq('is_active', True).execute()
-        return response.data
+        all_stocks = []
+        page_size = 1000
+        offset = 0
+        
+        while True:
+            response = supabase.table('stocks').select('*').eq('is_active', True).range(offset, offset + page_size - 1).execute()
+            data = response.data
+            if not data:
+                break
+            all_stocks.extend(data)
+            if len(data) < page_size:
+                break
+            offset += page_size
+            
+        return all_stocks
     except Exception as e:
         print(f"Error fetching stocks from database: {e}")
         return []
