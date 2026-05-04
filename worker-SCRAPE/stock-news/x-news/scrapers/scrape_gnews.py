@@ -591,7 +591,8 @@ def main():
                         
                         logger.info(f"Processing Google News article: title={title}, url={article.get('url')}")
                         try:
-                            if check_existing_news(title, article.get('published'), yfin_symbol):
+                            # Correct argument order: title, yfin_symbol, url
+                            if check_existing_news(title, yfin_symbol, article.get('url')):
                                 skipped += 1
                                 continue
                         except Exception as e:
@@ -601,12 +602,16 @@ def main():
                         # Parse published_date as ISO string, fallback to today if parsing fails
                         published_date_str = None
                         try:
-                            if article.get('published'):
-                                published_date_str = datetime.fromisoformat(article.get('published')).date().isoformat()
+                            pub_at = article.get('published')
+                            if pub_at:
+                                # Handle 'Z' suffix for older Python versions
+                                if pub_at.endswith('Z'):
+                                    pub_at = pub_at.replace('Z', '+00:00')
+                                published_date_str = datetime.fromisoformat(pub_at).date().isoformat()
                             else:
                                 published_date_str = datetime.now().date().isoformat()
                         except Exception as e:
-                            logger.error(f"Error parsing Google News published_date: {e}")
+                            logging.error(f"Error parsing Google News published_date: {e}")
                             published_date_str = datetime.now().date().isoformat()
                         gnews_data = {
                             "stock_id": id,
