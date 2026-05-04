@@ -21,6 +21,7 @@ from pathlib import Path
 import argparse
 import json
 
+from scrapers.agent_scrapers import enhanced_keyword_matching
 
 # MoneyControl base URL
 BASE_URL = "https://www.moneycontrol.com/company-article"
@@ -28,7 +29,7 @@ BASE_URL = "https://www.moneycontrol.com/company-article"
 # Updated function to scrape specific news headlines, timestamps, and descriptions
 # Function to store news in Supabase
 
-def scrape_moneycontrol_news_selenium(company_name: str, symbol: str, stock_name: str = ""):
+def scrape_moneycontrol_news_selenium(company_name: str, symbol: str, stock_name: str = "", keywords: list = None):
     url = f"{BASE_URL}/{company_name}/news/{symbol}"
 
     # Set up Selenium WebDriver with optimized flags for headless Linux
@@ -116,7 +117,28 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str, stock_name
             except Exception:
                 continue
 
-        return headlines
+        # Filter headlines based on keywords if provided
+        filtered_headlines = []
+        if keywords:
+            # Always ensure the stock name is in the keywords for fallback
+            if stock_name and stock_name not in keywords:
+                keywords.append(stock_name)
+                
+            for h in headlines:
+                combined_text = f"{h['title']} {h['description']}"
+                is_match, _ = enhanced_keyword_matching(combined_text, keywords)
+                if is_match:
+                    filtered_headlines.append(h)
+                else:
+                    # Also try basic financial relevance just in case, but require the stock name match
+                    # Since these are aggregator pages, we MUST ensure the title or description mentions the stock
+                    name_parts = [p.lower() for p in (stock_name or company_name).split() if len(p) > 2]
+                    if any(part in combined_text.lower() for part in name_parts):
+                        filtered_headlines.append(h)
+        else:
+            filtered_headlines = headlines
+
+        return filtered_headlines
 
     except Exception as e:
         print(f"Failed to fetch news for {symbol}: {e}")
@@ -190,8 +212,20 @@ if __name__ == "__main__":
             company_name = link_b
             symbol = link_a
             
+        # Extract keywords
+        keywords = []
+        if stock.get('keyword_lst'):
+            try:
+                kw_obj = json.loads(stock['keyword_lst']) if isinstance(stock['keyword_lst'], str) else stock['keyword_lst']
+                if isinstance(kw_obj, dict) and 'keyword' in kw_obj:
+                    keywords = kw_obj['keyword']
+                elif isinstance(kw_obj, list):
+                    keywords = kw_obj
+            except Exception as e:
+                logger.error(f"Error parsing keywords for {id}: {e}")
+                
         logger.info(f"\nProcessing {company_name} ({symbol}) for {yfin_symbol}...")
-        headlines = scrape_moneycontrol_news_selenium(company_name, symbol, stock.get('stock_name', ''))
+        headlines = scrape_moneycontrol_news_selenium(company_name, symbol, stock.get('stock_name', ''), keywords)
         # Print all found headlines for debugging
         logger.info(f"All headlines for {company_name}:")
         for h in headlines:
