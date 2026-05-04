@@ -19,6 +19,11 @@ from utilities.check_existing_news import check_existing_news
 from datetime import datetime
 import argparse
 
+try:
+    from scrapers.agent_scrapers import enhanced_keyword_matching
+except ImportError:
+    from agent_scrapers import enhanced_keyword_matching
+
 # Fallback Google News URL (now secondary option)
 GOOGLE_NEWS_URL = f"https://news.google.com/search?q={{stock}}+finance+india+{{date}}&hl=en-IN&gl=IN&ceid=IN:en"
 
@@ -228,38 +233,14 @@ def fetch_stock_news_direct_rss(keywords, max_articles_per_source=20):
                 if article['content']:
                     article['content'] = clean_html_content(article['content'])
                 
-                # Filter for stock/finance related content
-                title_lower = article['title'].lower()
-                summary_lower = article['summary'].lower()
-                
-                # Stock/finance keywords to filter relevant articles
-                finance_keywords = [
-                    'stock', 'market', 'share', 'nifty', 'sensex', 'bse', 'nse',
-                    'equity', 'trading', 'investment', 'profit', 'loss', 'earning',
-                    'revenue', 'financial', 'rupee', 'currency', 'economy',
-                    'fund', 'ipo', 'dividend', 'quarter', 'q1', 'q2', 'q3', 'q4',
-                    'fiscal', 'budget', 'inflation', 'gdp', 'rbi', 'sebi',
-                    'mutual fund', 'portfolio', 'bullish', 'bearish', 'buyback'
-                ]
-                
-                # Check if article is finance-related or matches keywords
-                is_relevant = False
-                
-                # Check against finance keywords
-                if any(keyword in title_lower for keyword in finance_keywords) or \
-                   any(keyword in summary_lower for keyword in finance_keywords):
-                    is_relevant = True
-                
-                # Check against user's stock keywords
-                if keywords:
-                    for keyword in keywords:
-                        if keyword.lower() in title_lower or keyword.lower() in summary_lower:
-                            is_relevant = True
-                            break
+                # Filter for stock/finance related content using robust keyword matcher
+                article_text = f"{article.get('title', '')} {article.get('summary', '')}"
+                is_relevant, matched_kws = enhanced_keyword_matching(article_text, keywords)
                 
                 if is_relevant and article['url'] and article['title']:
                     # Add metadata for tracking
                     article['scraped_at'] = datetime.now().isoformat()
+                    article['matched_keywords'] = matched_kws
                     all_articles.append(article)
                     
         except Exception as e:
@@ -481,55 +462,8 @@ def main():
                 
                 # Process RSS articles
                 for article in rss_news:
-                    # Enhanced keyword matching with word boundaries and context awareness
-                    article_text = f"{article.get('title', '')} {article.get('summary', '')}".lower()
-                    keyword_match = False
-                    matched_keywords = []
-                    
-                    for kw in keywords:
-                        kw_lower = kw.lower().strip()
-                        
-                        # Skip very short keywords (1-2 chars) as they cause too many false positives
-                        if len(kw_lower) <= 2:
-                            logger.debug(f"Skipping very short keyword '{kw}' (length <= 2)")
-                            continue
-                        
-                        # For short keywords (3-4 chars), use strict word boundary matching
-                        if len(kw_lower) <= 4:
-                            # Use word boundaries to avoid partial matches (e.g., "RIL" in "trillion")
-                            pattern = r'\b' + re.escape(kw_lower) + r'\b'
-                            if re.search(pattern, article_text):
-                                # Additional context check for financial relevance
-                                if is_financially_relevant_context(article_text, kw_lower):
-                                    keyword_match = True
-                                    matched_keywords.append(kw)
-                                    logger.debug(f"✅ Strict match found for short keyword '{kw}' with financial context")
-                                    break
-                                else:
-                                    logger.debug(f"⚠️ Keyword '{kw}' found but lacks financial context")
-                        
-                        # For medium keywords (5-8 chars), use word boundary but allow some flexibility
-                        elif len(kw_lower) <= 8:
-                            pattern = r'\b' + re.escape(kw_lower) + r'\b'
-                            if re.search(pattern, article_text):
-                                keyword_match = True
-                                matched_keywords.append(kw)
-                                logger.debug(f"✅ Medium keyword match found for '{kw}'")
-                                break
-                        
-                        # For longer keywords (9+ chars), allow partial matches but verify context
-                        else:
-                            if kw_lower in article_text:
-                                if is_financially_relevant_context(article_text, kw_lower):
-                                    keyword_match = True
-                                    matched_keywords.append(kw)
-                                    logger.debug(f"✅ Long keyword match found for '{kw}' with financial context")
-                                    break
-                                else:
-                                    logger.debug(f"⚠️ Long keyword '{kw}' found but lacks financial context")
-                    
-                    if not keyword_match:
-                        logger.debug(f"❌ No valid keyword matches found for article: {article.get('title', '')[:50]}...")
+                    matched_keywords = article.get('matched_keywords', [])
+                    if not matched_keywords:
                         continue
                         
                     title = article.get('title')
@@ -623,23 +557,13 @@ def main():
                     # Enhanced filtering for Google News
                     filtered_news = []
                     for article in news:
-                        article_text = f"{article.get('title', '')} {article.get('summary', '')}".lower()
-                        kw_lower = kw.lower().strip()
+                        article_text = f"{article.get('title', '')} {article.get('summary', '')}"
+                        is_relevant, matched_kws = enhanced_keyword_matching(article_text, [kw])
                         
-                        # Apply same improved matching logic
-                        if len(kw_lower) <= 4:
-                            # Strict word boundary matching for short keywords
-                            pattern = r'\b' + re.escape(kw_lower) + r'\b'
-                            if re.search(pattern, article_text):
-                                if is_financially_relevant_context(article_text, kw_lower):
-                                    filtered_news.append(article)
-                                    logger.debug(f"✅ Google News: Strict match for '{kw}' with financial context")
-                        else:
-                            # More flexible matching for longer keywords
-                            if kw_lower in article_text:
-                                if is_financially_relevant_context(article_text, kw_lower):
-                                    filtered_news.append(article)
-                                    logger.debug(f"✅ Google News: Match found for '{kw}' with financial context")
+                        if is_relevant:
+                            article['matched_keywords'] = matched_kws
+                            filtered_news.append(article)
+                            logger.debug(f"✅ Google News: Match found for '{kw}' with financial context")
                     
                     for article in filtered_news:
                         # Use summary as fallback for title if title is missing/empty
@@ -678,7 +602,7 @@ def main():
                             "source": article.get('source', 'gnews'),
                             "published_at": article.get('published'),
                             "scraped_at": article.get('scraped_at'),
-                            "tags": [kw, "news", "google_news"],
+                            "tags": article.get('matched_keywords', [kw]) + ["news", "google_news"],
                             "sentiment": None,
                             "sentiment_score": None,
                             "yfin_symbol": yfin_symbol,
