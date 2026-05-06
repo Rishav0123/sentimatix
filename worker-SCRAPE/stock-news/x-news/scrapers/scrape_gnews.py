@@ -530,6 +530,7 @@ def main():
                         "sentiment": None,
                         "sentiment_score": None,
                         "yfin_symbol": yfin_symbol,
+                        "stock_name": stock.get('stock_name', ''),
                         "published_date": published_date_str
                     }
                     
@@ -625,6 +626,7 @@ def main():
                             "sentiment": None,
                             "sentiment_score": None,
                             "yfin_symbol": yfin_symbol,
+                            "stock_name": stock.get('stock_name', ''),
                             "published_date": published_date_str
                         }
                         # Skip and log if title is still missing/empty after fallback

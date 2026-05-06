@@ -12,6 +12,26 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
+def parse_keyword_lst(kw_data) -> list:
+    """Parse keyword_lst JSONB field into a flat list of alias strings."""
+    if not kw_data:
+        return []
+    try:
+        if isinstance(kw_data, str):
+            import json
+            kw_data = json.loads(kw_data)
+        if isinstance(kw_data, dict):
+            return kw_data.get('keyword', [])
+        if isinstance(kw_data, list):
+            return kw_data
+    except Exception as e:
+        return []
+    return []
+
+# Keywords that are too generic for entity-level clause extraction
+# (identified from live keyword_lst analysis — all other short keywords are valid tickers)
+ENTITY_SEARCH_BLOCKLIST = {'global', 'take'}
+
 # Configure logging
 def setup_logging():
     log_dir = Path("logs")
@@ -46,6 +66,30 @@ class ProductionSentimentAnalyzer:
         )
         self.max_chunk_chars = max_chunk_chars
         logger.info("Initialized ProductionSentimentAnalyzer with FinBERT model")
+
+    async def fetch_keyword_map(self, stock_ids: list) -> dict:
+        """Pre-fetch keyword_lst for all stock_ids in a batch."""
+        if not stock_ids:
+            return {}
+        try:
+            # Remove any None values and deduplicate
+            clean_ids = list(set([sid for sid in stock_ids if sid]))
+            if not clean_ids:
+                return {}
+                
+            response = await asyncio.to_thread(
+                lambda: self.supabase.table('stocks')
+                    .select('id, keyword_lst')
+                    .in_('id', clean_ids)
+                    .execute()
+            )
+            result = {}
+            for row in (response.data or []):
+                result[row['id']] = parse_keyword_lst(row.get('keyword_lst'))
+            return result
+        except Exception as e:
+            logger.error(f"Error fetching keyword map: {e}")
+            return {}
 
     def _normalize_scores(self, scores):
         """Convert pipeline scores to standardized format"""
@@ -187,103 +231,104 @@ class ProductionSentimentAnalyzer:
         pos, neg, neu = self.analyze_text_probs(text)
         return self._calculate_advanced_score(pos, neg, neu, text)
 
-    def extract_entity_clauses(self, text, entity_name):
+    def extract_entity_clauses(self, text: str, entity_name: str, aliases: list = None) -> list:
         """
-        Advanced entity context extraction with improved comma/clause splitting.
-        Specifically handles cases like "TCS gained today, HDFC loses in stock market"
+        Advanced entity context extraction with prioritized alias matching.
+        Builds a prioritized search list (longest → shortest), tries each alias, 
+        and merges all found contexts.
         """
-        entity_lower = entity_name.lower()
-        contexts = []
+        # Build search list: entity_name first, then aliases, longest→shortest
+        all_terms = ([entity_name] if entity_name else []) + (aliases or [])
         
-        # Strategy 1: Split by sentence first
-        sentences = re.split(r'[.!?]+\s*', text)
+        seen = set()
+        search_terms = []
+        for t in all_terms:
+            if not t: continue
+            t_clean = t.strip()
+            t_lower = t_clean.lower()
+            if t_clean and t_lower not in seen and t_lower not in ENTITY_SEARCH_BLOCKLIST:
+                seen.add(t_lower)
+                search_terms.append(t_clean)
         
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if len(sentence) < 10:
-                continue
-            
-            # Check if entity appears in this sentence
-            pattern = r'\b' + re.escape(entity_lower) + r'\b'
-            if re.search(pattern, sentence.lower()):
-                
-                # Strategy A: Split by commas AND conjunctions for better separation
-                # Handle patterns like "X gained, Y lost" or "X beat expectations while Y disappointed"
-                clause_separators = r'[,;]\s*|(?:\s+(?:while|but|however|meanwhile|whereas|although|though)\s+)'
-                clauses = re.split(clause_separators, sentence)
-                
-                # Find clauses that contain the entity
-                entity_clauses = []
-                for clause in clauses:
-                    clause = clause.strip()
-                    if re.search(pattern, clause.lower()):
-                        entity_clauses.append(clause)
-                
-                # If we found specific clauses, use them
-                if entity_clauses:
-                    contexts.extend(entity_clauses)
-                else:
-                    # Fallback: try to extract phrase around entity mention
-                    match = re.search(pattern, sentence.lower())
-                    if match:
-                        start_pos = match.start()
-                        
-                        # Find the start of the relevant phrase (look backward for comma, start of sentence)
-                        phrase_start = 0
-                        for i in range(start_pos - 1, -1, -1):
-                            if sentence[i] in '.,;':
-                                phrase_start = i + 1
-                                break
-                        
-                        # Find the end of the relevant phrase (look forward for comma, end of sentence)
-                        phrase_end = len(sentence)
-                        for i in range(start_pos, len(sentence)):
-                            if sentence[i] in '.,;':
-                                # Include a bit more context after comma if it's short
-                                if i < len(sentence) - 1:
-                                    next_comma = sentence.find(',', i + 1)
-                                    if next_comma == -1 or next_comma - i > 30:
-                                        phrase_end = min(i + 30, len(sentence))
-                                    else:
-                                        phrase_end = next_comma
-                                else:
-                                    phrase_end = i
-                                break
-                        
-                        phrase = sentence[phrase_start:phrase_end].strip()
-                        if phrase and len(phrase) > 10:
-                            contexts.append(phrase)
-        
-        # Strategy 2: If no good contexts found, use broader search
-        if not contexts:
-            # Look for the entity and take surrounding context
-            idx = text.lower().find(entity_lower)
-            if idx != -1:
-                start = max(0, idx - 50)
-                end = min(len(text), idx + 100)
-                context = text[start:end].strip()
-                
-                # Try to start and end on word boundaries
-                if start > 0:
-                    space_idx = context.find(' ')
-                    if space_idx > 0:
-                        context = context[space_idx:].strip()
-                
-                if end < len(text):
-                    space_idx = context.rfind(' ')
-                    if space_idx > 0:
-                        context = context[:space_idx].strip()
-                
-                if len(context) > 20:
-                    contexts.append(context)
-        
-        return contexts if contexts else [text]  # Fallback to full text
+        # Sort longest→shortest so more specific terms are tried first
+        search_terms.sort(key=len, reverse=True)
 
-    def analyze_entity(self, entity_name, text):
+        all_contexts = []
+        seen_contexts = set()
+
+        for term in search_terms:
+            term_lower = term.lower()
+            pattern = r'\b' + re.escape(term_lower) + r'\b'
+            
+            # Split by sentence first
+            sentences = re.split(r'[.!?]+\s*', text)
+            
+            for sentence in sentences:
+                sentence = sentence.strip()
+                if len(sentence) < 10:
+                    continue
+                
+                # Check if this alias appears in this sentence
+                if re.search(pattern, sentence.lower()):
+                    # Strategy A: Split by commas AND conjunctions
+                    clause_separators = r'[,;]\s*|(?:\s+(?:while|but|however|meanwhile|whereas|although|though)\s+)'
+                    clauses = re.split(clause_separators, sentence)
+                    
+                    found_in_this_sentence = False
+                    for clause in clauses:
+                        clause = clause.strip()
+                        if re.search(pattern, clause.lower()):
+                            if clause not in seen_contexts:
+                                all_contexts.append(clause)
+                                seen_contexts.add(clause)
+                                found_in_this_sentence = True
+                    
+                    # Fallback phrase extraction if no specific clause matched
+                    if not found_in_this_sentence:
+                        match = re.search(pattern, sentence.lower())
+                        if match:
+                            start_pos = match.start()
+                            phrase_start = 0
+                            for i in range(start_pos - 1, -1, -1):
+                                if sentence[i] in '.,;':
+                                    phrase_start = i + 1
+                                    break
+                            phrase_end = len(sentence)
+                            for i in range(start_pos, len(sentence)):
+                                if sentence[i] in '.,;':
+                                    phrase_end = i
+                                    break
+                            phrase = sentence[phrase_start:phrase_end].strip()
+                            if phrase and len(phrase) > 10 and phrase not in seen_contexts:
+                                all_contexts.append(phrase)
+                                seen_contexts.add(phrase)
+            
+            # If we found matches for a long/specific term, we could potentially stop, 
+            # but merging results from multiple aliases is safer for comprehensive sentiment.
+            # However, if we already have good contexts, we don't necessarily need to keep looking for shorter ones.
+            if all_contexts and len(term) > 10:
+                break
+
+        # Strategy 2: If still no good contexts found, use broader search for ANY alias
+        if not all_contexts:
+            for term in search_terms:
+                term_lower = term.lower()
+                idx = text.lower().find(term_lower)
+                if idx != -1:
+                    start = max(0, idx - 50)
+                    end = min(len(text), idx + 100)
+                    context = text[start:end].strip()
+                    if len(context) > 20:
+                        all_contexts.append(context)
+                        break # Found one match in broader search, that's enough
+
+        return all_contexts if all_contexts else [text]
+
+    def analyze_entity(self, entity_name, text, aliases=None):
         """
-        Analyze sentiment specifically for an entity using improved context extraction
+        Analyze sentiment specifically for an entity using improved context extraction with alias support
         """
-        contexts = self.extract_entity_clauses(text, entity_name)
+        contexts = self.extract_entity_clauses(text, entity_name, aliases=aliases)
         
         if not contexts:
             logger.warning(f"No context found for entity {entity_name}, using full text")
@@ -538,23 +583,31 @@ async def main():
         news_articles = await analyzer.get_unanalyzed_news()
         logger.info(f"Found {len(news_articles)} unanalyzed news records")
         
+        # Pre-fetch keyword map for all stocks in this batch
+        stock_ids = [a.get('stock_id') for a in news_articles if a.get('stock_id')]
+        keyword_map = await analyzer.fetch_keyword_map(stock_ids)
+        logger.info(f"Loaded keyword map for {len(keyword_map)} stocks")
+        
         processed_count = 0
         
         for article in news_articles:
             try:
-                # Get the stock name for this specific record
+                # Get the stock name and aliases for this specific record
+                stock_id = article.get('stock_id')
                 stock_name = article.get('stock_name', '')
+                aliases = keyword_map.get(stock_id, [])
+                
                 title = article.get('title', '')
                 content = article.get('content', '')
                 full_text = f"{title} {content}".strip()
                 
-                if not stock_name:
-                    logger.warning(f"No stock_name found for article {article['id']}, using document-level analysis")
+                if not stock_name and not aliases:
+                    logger.warning(f"No stock_name or aliases found for article {article['id']}, using document-level analysis")
                     # Fallback to document-level analysis
                     sentiment_result = analyzer.analyze_text(full_text)
                 else:
                     # Analyze sentiment specifically for this stock in the context of the article
-                    sentiment_result = analyzer.analyze_entity(stock_name, full_text)
+                    sentiment_result = analyzer.analyze_entity(stock_name, full_text, aliases=aliases)
                 
                 # Log the result
                 logger.info(f"Article {article['id']} - {stock_name}: {sentiment_result}")
@@ -562,14 +615,14 @@ async def main():
                 print(f"Title: {title[:80]}...")
                 
                 # Extract and show context for debugging
-                if stock_name:
-                    contexts = analyzer.extract_entity_clauses(full_text, stock_name)
+                if stock_name or aliases:
+                    contexts = analyzer.extract_entity_clauses(full_text, stock_name, aliases=aliases)
                     if contexts:
                         print(f"Context: {contexts[0][:100]}...")
                 
                 print("-" * 100)
                 
-                # Update the specific record with sentiment (DRY RUN - NO ACTUAL WRITES)
+                # Update the specific record with sentiment
                 await analyzer.update_news_sentiment(article['id'], sentiment_result)
                 
                 processed_count += 1

@@ -754,6 +754,7 @@ if __name__ == "__main__":
                 article['sentiment'] = sentiment
                 article['sentiment_score'] = sentiment_score
                 article['yfin_symbol'] = yfin_symbol
+                article['stock_name'] = stock_name
                 
                 # Ensure published_date is a string
                 if 'published_date' in article and article['published_date'] is not None:

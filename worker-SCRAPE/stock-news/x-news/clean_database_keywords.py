@@ -47,7 +47,15 @@ def main():
         'champion', 'hero', 'leader', 'pioneer', 'choice', 'select', 'elite',
         'nexus', 'link', 'connect', 'grid', 'matrix', 'web', 'net',
         'all', 'any', 'some', 'many', 'few', 'much', 'more', 'most', 'less', 'least',
-        'this', 'that', 'these', 'those', 'such', 'what', 'which', 'who', 'whom', 'whose'
+        'this', 'that', 'these', 'those', 'such', 'what', 'which', 'who', 'whom', 'whose',
+        'gujarat', 'tata', 'jindal', 'indo', 'dcm', 'aditya', 'mahindra', 'jsw', 'bajaj',
+        'kirloskar', 'vardhman', 'welspun', 'reliance', 'laxmi', 'blue', 'tvs', 'mangalam',
+        'supreme', 'kothari', 'kalyani', 'premier', 'jubilant', 'apollo', 'godrej', 'future',
+        'jk', 'manaksia', 'nahar', 'star', 'sundaram', 'united', 'muthoot', 'raj', 'zee',
+        'deepak', 'icici', 'one', 'canara', 'aarti', 'dhunseri', 'arihant', 'aeroflex',
+        'euro', 'pnb', 'arvind', 'sai', 'birla', 'emami', 'borosil', 'century', 'central',
+        'ganesh', 'globe', 'inox', 'jain', 'lloyds', 'max', 'national', 'om', 'oriental',
+        'oswal', 'prakash', 'ptc', 'raymond', 'shanti', 'shriram', 'shyam', 'tci', 'industrial'
     }
 
     all_stocks = []

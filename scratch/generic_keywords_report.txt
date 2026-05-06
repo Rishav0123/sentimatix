@@ -1,0 +1,20 @@
+Total Keywords: 2888
+Purely Generic: 14
+Partially Generic: 1343
+Non-Generic: 1531
+
+Purely Generic List:
+Asian Energy
+Asian Energy Services Limited
+Asian Star
+Asian Star Company Limited
+Entertainment Network
+Entertainment Network (India) Limited
+Future Enterprises Limited
+Global Health
+Global Health Limited
+Gujarat Industries
+Gujarat Industries Power
+Gujarat Industries Power Company Limited
+Indian Hotels
+Indian Metals

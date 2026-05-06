@@ -276,6 +276,7 @@ if __name__ == "__main__":
                         "url": news['url'],
                         "source": "moneycontrol",
                         "yfin_symbol": yfin_symbol,
+                        "stock_name": stock.get('stock_name', ''),
                         "published_at": full_datetime,
                         "scraped_at": datetime.now(timezone.utc).isoformat(),
                         "tags": [stock['mc_link_2'], "news"],
