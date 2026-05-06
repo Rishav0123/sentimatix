@@ -354,16 +354,35 @@ class ProductionSentimentAnalyzer:
         return result
 
     async def get_unanalyzed_news(self):
-        """Get news articles that need sentiment analysis - both sentiment AND sentiment_score must be null"""
+        """Get ALL news articles that need sentiment analysis using pagination"""
         try:
-            response = await asyncio.to_thread(
-                lambda: self.supabase.table("news")
-                .select("*")
-                .is_("sentiment", "null")
-                .is_("sentiment_score", "null")
-                .execute()
-            )
-            return response.data if response.data is not None else []
+            all_news = []
+            page_size = 1000
+            offset = 0
+            
+            while True:
+                response = await asyncio.to_thread(
+                    lambda: self.supabase.table("news")
+                    .select("*")
+                    .is_("sentiment", "null")
+                    .is_("sentiment_score", "null")
+                    .range(offset, offset + page_size - 1)
+                    .execute()
+                )
+                
+                data = response.data
+                if not data:
+                    break
+                    
+                all_news.extend(data)
+                
+                if len(data) < page_size:
+                    break
+                    
+                offset += page_size
+                logger.info(f"Fetched {len(all_news)} unanalyzed records so far...")
+                
+            return all_news
         except Exception as e:
             logger.error(f"Error fetching unanalyzed news: {str(e)}")
             return []
@@ -532,112 +551,63 @@ async def test_with_sample_database_records():
         print()
 
 async def main():
-    """Main function - choose test mode or production mode"""
+    """Main function - Production sentiment analysis loop"""
     import sys
     
-    if len(sys.argv) > 1 and sys.argv[1] == "--production":
-        print("[PROD] PRODUCTION MODE - WILL UPDATE DATABASE")
-        confirm = input("Are you sure you want to run in production mode? (yes/no): ")
-        if confirm.lower() != 'yes':
-            print("Production mode cancelled.")
-            return
-        
-        analyzer = ProductionSentimentAnalyzer()
-        news_articles = await analyzer.get_unanalyzed_news()
-        logger.info(f"Found {len(news_articles)} unanalyzed news records")
-        
-        for article in news_articles:
-            try:
-                # Get the stock name for this specific record
-                stock_name = article.get('stock_name', '')
-                title = article.get('title', '')
-                content = article.get('content', '')
-                full_text = f"{title} {content}".strip()
-                
-                if not stock_name:
-                    logger.warning(f"No stock_name found for article {article['id']}, using document-level analysis")
-                    # Fallback to document-level analysis
-                    sentiment_result = analyzer.analyze_text(full_text)
-                else:
-                    # Analyze sentiment specifically for this stock in the context of the article
-                    sentiment_result = analyzer.analyze_entity(stock_name, full_text)
-                
-                # Log the result
-                logger.info(f"Article {article['id']} - {stock_name}: {sentiment_result}")
-                print(f"Processing: {title[:60]}...")
-                print(f"Stock: {stock_name} -> Sentiment: {sentiment_result['sentiment']} ({sentiment_result['sentiment_score']:+.3f})")
-                
-                # Update the specific record with sentiment
-                await analyzer.update_news_sentiment(article['id'], sentiment_result)
-                
-            except Exception as e:
-                logger.error(f"Error processing article {article['id']}: {str(e)}")
-                continue
-        
-        logger.info("Sentiment analysis completed for all records")
+    logger.info("Starting Production Sentiment Analysis")
+    analyzer = ProductionSentimentAnalyzer()
     
-    else:
-        print("[PROD] PRODUCTION MODE - WRITING TO DATABASE")
-        
-        analyzer = ProductionSentimentAnalyzer()
-        news_articles = await analyzer.get_unanalyzed_news()
-        logger.info(f"Found {len(news_articles)} unanalyzed news records")
-        
-        # Pre-fetch keyword map for all stocks in this batch
-        stock_ids = [a.get('stock_id') for a in news_articles if a.get('stock_id')]
-        keyword_map = await analyzer.fetch_keyword_map(stock_ids)
-        logger.info(f"Loaded keyword map for {len(keyword_map)} stocks")
-        
-        processed_count = 0
-        
-        for article in news_articles:
-            try:
-                # Get the stock name and aliases for this specific record
-                stock_id = article.get('stock_id')
-                stock_name = article.get('stock_name', '')
-                aliases = keyword_map.get(stock_id, [])
-                
-                title = article.get('title', '')
-                content = article.get('content', '')
-                full_text = f"{title} {content}".strip()
-                
-                if not stock_name and not aliases:
-                    logger.warning(f"No stock_name or aliases found for article {article['id']}, using document-level analysis")
-                    # Fallback to document-level analysis
-                    sentiment_result = analyzer.analyze_text(full_text)
-                else:
-                    # Analyze sentiment specifically for this stock in the context of the article
-                    sentiment_result = analyzer.analyze_entity(stock_name, full_text, aliases=aliases)
-                
-                # Log the result
-                logger.info(f"Article {article['id']} - {stock_name}: {sentiment_result}")
-                print(f"ID: {article['id'][:8]}... | Stock: {stock_name:<20} | Sentiment: {sentiment_result['sentiment']:<8} ({sentiment_result['sentiment_score']:+.3f})")
-                print(f"Title: {title[:80]}...")
-                
-                # Extract and show context for debugging
-                if stock_name or aliases:
-                    contexts = analyzer.extract_entity_clauses(full_text, stock_name, aliases=aliases)
-                    if contexts:
-                        print(f"Context: {contexts[0][:100]}...")
-                
-                print("-" * 100)
-                
-                # Update the specific record with sentiment
-                await analyzer.update_news_sentiment(article['id'], sentiment_result)
-                
-                processed_count += 1
-                
-                # Process in batches to avoid overwhelming output
-                if processed_count % 10 == 0:
-                    print(f"\n[INFO] Processed {processed_count} records so far...\n")
-                
-            except Exception as e:
-                logger.error(f"Error processing article {article['id']}: {str(e)}")
-                continue
-        
-        print(f"\n[SUCCESS] Analysis completed for {processed_count} records")
-        print("[INFO] All sentiment data has been written to the database")
-        logger.info(f"Sentiment analysis completed for {processed_count} records")
+    # Fetch ALL unanalyzed news articles
+    news_articles = await analyzer.get_unanalyzed_news()
+    total_count = len(news_articles)
+    logger.info(f"Found {total_count} total unanalyzed news records to process")
+    
+    if total_count == 0:
+        logger.info("No new records to process. Exiting.")
+        return
+
+    # Pre-fetch keyword map for all stocks in this batch
+    stock_ids = [a.get('stock_id') for a in news_articles if a.get('stock_id')]
+    keyword_map = await analyzer.fetch_keyword_map(stock_ids)
+    logger.info(f"Loaded keyword map for {len(keyword_map)} stocks")
+    
+    processed_count = 0
+    
+    for article in news_articles:
+        try:
+            # Get the stock name and aliases for this specific record
+            stock_id = article.get('stock_id')
+            stock_name = article.get('stock_name', '')
+            aliases = keyword_map.get(stock_id, [])
+            
+            title = article.get('title', '')
+            content = article.get('content', '')
+            full_text = f"{title} {content}".strip()
+            
+            if not stock_name and not aliases:
+                logger.warning(f"No stock_identity for article {article['id']}, using document-level analysis")
+                sentiment_result = analyzer.analyze_text(full_text)
+            else:
+                # Analyze sentiment specifically for this stock in the context of the article
+                sentiment_result = analyzer.analyze_entity(stock_name, full_text, aliases=aliases)
+            
+            # Update the record with sentiment
+            await analyzer.update_news_sentiment(article['id'], sentiment_result)
+            
+            processed_count += 1
+            
+            # Periodic logging
+            if processed_count % 10 == 0 or processed_count == total_count:
+                progress = (processed_count / total_count) * 100
+                print(f"[{progress:6.2f}%] Processed {processed_count}/{total_count} | Stock: {stock_name[:20]:<20} | Sentiment: {sentiment_result['sentiment']}")
+                logger.info(f"Progress: {processed_count}/{total_count} ({progress:.1f}%)")
+            
+        except Exception as e:
+            logger.error(f"Error processing article {article['id']}: {str(e)}")
+            continue
+    
+    logger.info(f"Sentiment analysis completed for all {processed_count} records")
+    print(f"\n[SUCCESS] Completed analysis for {processed_count} records")
 
 if __name__ == "__main__":
     asyncio.run(main())
