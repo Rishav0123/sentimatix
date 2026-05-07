@@ -1,8 +1,5 @@
-
-# Use Python 3.11 slim image
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -10,24 +7,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file (assuming it's in the root or mcp folder)
-# We'll try to copy from the mcp folder first
-COPY apps/mcp/requirements.txt .
-
-# Install dependencies
+# Copy and install Python dependencies
+# (build context = apps/mcp/, so paths are relative to that)
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
-COPY apps/mcp/ /app/apps/mcp/
-COPY apps/mcp/server/ /app/server/
-# We need to ensure the module path is correct. 
-# run_server.py expects 'server' package in the path.
+# Copy all application source code
+COPY . .
 
-# Set PYTHONPATH
+# Set PYTHONPATH so 'server' package is importable
 ENV PYTHONPATH=/app
 
-# Expose port
-EXPOSE 8000
+# Expose SSE port
+EXPOSE 8003
 
-# Command to run the application
-CMD ["python", "apps/mcp/run_server.py"]
+# Run MCP server in HTTP/SSE mode for remote access
+CMD ["python", "mcp_stdio.py", "--sse", "--port=8003"]
