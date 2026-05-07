@@ -282,6 +282,79 @@ async def root():
         "documentation": "/docs"
     }
 
+# --- MCP Endpoints (For Smithery & Agents) ---
+@app.get("/.well-known/mcp/server-card.json")
+async def mcp_server_card():
+    """Smithery server-card.json metadata"""
+    return {
+        "serverInfo": {
+            "name": "Sentimatix",
+            "version": "1.0.0"
+        },
+        "authentication": {
+            "required": False
+        },
+        "tools": [
+            {"name": "explain_price_change", "description": "Explains why an NSE stock price changed using news, sentiment & technical analysis.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+            {"name": "analyze_stock_enhanced", "description": "Deep single-stock research report with AI-generated insights.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+            {"name": "compare_stocks", "description": "Side-by-side comparison of two NSE stocks.", "inputSchema": {"type": "object", "properties": {"symbol1": {"type": "string"}, "symbol2": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol1", "symbol2", "start_date", "end_date"]}},
+            {"name": "get_stock_summary", "description": "Price metrics for an NSE stock: price, change%, high, low, volume.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "period_days": {"type": "integer"}}, "required": ["symbol"]}},
+            {"name": "get_historical_prices", "description": "Daily OHLCV time-series data for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+            {"name": "get_news_sentiment", "description": "News articles with NLP sentiment scores for an Indian NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+            {"name": "get_sentiment_aggregate", "description": "Aggregated sentiment stats for an NSE stock over a period.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+            {"name": "get_technical_analysis", "description": "RSI, MACD, Bollinger Bands, moving averages, support/resistance.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "period_days": {"type": "integer"}}, "required": ["symbol"]}},
+            {"name": "calculate_correlation", "description": "Pearson correlation between two NSE stocks.", "inputSchema": {"type": "object", "properties": {"symbol1": {"type": "string"}, "symbol2": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol1", "symbol2", "start_date", "end_date"]}},
+            {"name": "get_rag_evidence", "description": "Semantic search over Sentimatix news corpus for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "query": {"type": "string"}}, "required": ["symbol", "query"]}},
+        ],
+        "resources": [],
+        "prompts": []
+    }
+
+@app.post("/mcp")
+@app.options("/mcp")
+async def mcp_rpc_handler(request: Request):
+    """Handle MCP JSON-RPC protocol requests from AI Agents (Smithery)"""
+    if request.method == "OPTIONS":
+        return Response(status_code=200)
+        
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": None}, status_code=400)
+
+    method = body.get("method", "")
+    req_id = body.get("id")
+    
+    card = await mcp_server_card()
+    tools_list = card["tools"]
+
+    if method == "initialize":
+        return JSONResponse({
+            "jsonrpc": "2.0", "id": req_id,
+            "result": {
+                "protocolVersion": "2024-11-05",
+                "serverInfo": {"name": "Sentimatix", "version": "1.0.0"},
+                "capabilities": {"tools": {}}
+            }
+        })
+    elif method == "notifications/initialized":
+        return JSONResponse({"jsonrpc": "2.0", "id": req_id, "result": {}})
+    elif method == "tools/list":
+        return JSONResponse({
+            "jsonrpc": "2.0", "id": req_id,
+            "result": {"tools": tools_list}
+        })
+    elif method == "resources/list":
+        return JSONResponse({"jsonrpc": "2.0", "id": req_id, "result": {"resources": []}})
+    elif method == "prompts/list":
+        return JSONResponse({"jsonrpc": "2.0", "id": req_id, "result": {"prompts": []}})
+    else:
+        return JSONResponse({
+            "jsonrpc": "2.0", "id": req_id,
+            "error": {"code": -32601, "message": f"Method not found: {method}"}
+        })
+
+
 # Add favicon handler to prevent 405 errors
 @app.get("/favicon.ico")
 async def favicon():
