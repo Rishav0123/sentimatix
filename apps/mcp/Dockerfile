@@ -23,5 +23,5 @@ ENV PYTHONPATH=/app
 # Expose SSE port
 EXPOSE 8003
 
-# Run MCP server in HTTP/SSE mode for remote access
-CMD ["python", "mcp_stdio.py", "--sse", "--port=8003"]
+# Run MCP server in HTTP/SSE mode — Railway sets $PORT dynamically
+CMD ["python", "mcp_stdio.py", "--sse"]

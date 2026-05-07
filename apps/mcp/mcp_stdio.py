@@ -391,6 +391,8 @@ async def run_sse(port: int = 8003):
     from starlette.applications import Starlette
     from starlette.routing import Mount, Route
     from starlette.responses import JSONResponse, PlainTextResponse
+    from starlette.middleware import Middleware
+    from starlette.middleware.cors import CORSMiddleware
     import uvicorn
 
     sse = SseServerTransport("/messages/")
@@ -423,6 +425,10 @@ async def run_sse(port: int = 8003):
         }
         return JSONResponse(card)
 
+    middleware = [
+        Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    ]
+
     starlette_app = Starlette(
         routes=[
             Route("/", endpoint=health),
@@ -430,9 +436,10 @@ async def run_sse(port: int = 8003):
             Route("/sse", endpoint=handle_sse),
             Route("/.well-known/mcp/server-card.json", endpoint=server_card),
             Mount("/messages/", app=sse.handle_post_message),
-        ]
+        ],
+        middleware=middleware
     )
-    config = uvicorn.Config(starlette_app, host="0.0.0.0", port=port, log_level="warning")
+    config = uvicorn.Config(starlette_app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     print(f"[Sentimatix MCP] SSE server listening on http://0.0.0.0:{port}/sse", file=sys.stderr)
     await server.serve()
@@ -443,7 +450,8 @@ if __name__ == "__main__":
     (ROOT / "logs").mkdir(exist_ok=True)
 
     if "--sse" in sys.argv:
-        port = 8003
+        # Read port from env (Railway sets $PORT dynamically) or from --port= arg
+        port = int(os.environ.get("PORT", 8003))
         for arg in sys.argv:
             if arg.startswith("--port="):
                 port = int(arg.split("=")[1])
