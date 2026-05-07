@@ -11,6 +11,7 @@ from rapidapi_auth import get_rapidapi_tier, is_rapidapi_request
 
 logger = logging.getLogger(__name__)
 
+# Mixpanel analytics integration initialized
 MIXPANEL_TOKEN = os.getenv("MIXPANEL_TOKEN")
 mp = Mixpanel(MIXPANEL_TOKEN) if MIXPANEL_TOKEN else None
 
