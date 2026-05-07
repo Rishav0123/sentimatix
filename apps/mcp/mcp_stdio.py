@@ -390,6 +390,7 @@ async def run_sse(port: int = 8003):
     from mcp.server.sse import SseServerTransport
     from starlette.applications import Starlette
     from starlette.routing import Mount, Route
+    from starlette.responses import JSONResponse, PlainTextResponse
     import uvicorn
 
     sse = SseServerTransport("/messages/")
@@ -398,9 +399,36 @@ async def run_sse(port: int = 8003):
         async with sse.connect_sse(request.scope, request.receive, request._send) as streams:
             await mcp.run(streams[0], streams[1], mcp.create_initialization_options())
 
+    async def health(request):
+        return PlainTextResponse("ok")
+
+    async def server_card(request):
+        """Smithery server-card.json — allows Smithery to skip live scanning."""
+        card = {
+            "name": "Sentimatix",
+            "description": "Real-time NSE/BSE Indian stock market sentiment, news, and technical analysis for AI agents. Covers 2200+ NSE-listed stocks.",
+            "version": "1.0.0",
+            "tools": [
+                {"name": "explain_price_change", "description": "Orchestrator — explains why an NSE stock price changed using price data, news sentiment, RAG evidence and technical analysis."},
+                {"name": "analyze_stock_enhanced", "description": "Deep single-stock research report with AI-generated insights and technical signals."},
+                {"name": "compare_stocks", "description": "Side-by-side comparison of two NSE stocks: price performance, sentiment, and technical indicators."},
+                {"name": "get_stock_summary", "description": "Price metrics for an NSE stock: change%, high, low, volume, volatility."},
+                {"name": "get_historical_prices", "description": "Daily OHLCV time-series data for charting and analysis."},
+                {"name": "get_news_sentiment", "description": "News articles with NLP sentiment scores for an Indian stock."},
+                {"name": "get_sentiment_aggregate", "description": "Aggregated sentiment stats (avg score, positive/negative/neutral counts) for a period."},
+                {"name": "get_technical_analysis", "description": "RSI, MACD, Bollinger Bands, moving averages, support/resistance levels for an NSE stock."},
+                {"name": "calculate_correlation", "description": "Pearson correlation between two NSE stocks over a period."},
+                {"name": "get_rag_evidence", "description": "Semantic search over the Sentimatix news corpus for an NSE stock."},
+            ]
+        }
+        return JSONResponse(card)
+
     starlette_app = Starlette(
         routes=[
+            Route("/", endpoint=health),
+            Route("/health", endpoint=health),
             Route("/sse", endpoint=handle_sse),
+            Route("/.well-known/mcp/server-card.json", endpoint=server_card),
             Mount("/messages/", app=sse.handle_post_message),
         ]
     )
