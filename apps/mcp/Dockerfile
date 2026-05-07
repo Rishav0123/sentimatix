@@ -20,8 +20,5 @@ COPY . .
 # Set PYTHONPATH so 'server' package is importable
 ENV PYTHONPATH=/app
 
-# Expose SSE port
-EXPOSE 8003
-
 # Run MCP server in HTTP/SSE mode — Railway sets $PORT dynamically
 CMD ["python", "mcp_stdio.py", "--sse"]
