@@ -95,9 +95,19 @@ api_router = APIRouter(prefix="/api")
 
 # Create FastAPI app
 app = FastAPI(
-    title="Stock Analysis API",
-    version="0.1.0",
-    docs_url="/swagger",
+    title="Sentimatix API — Indian Stock Market Intelligence",
+    description="""
+    Sentimatix provides high-fidelity financial news, sentiment analysis, and market intelligence for NSE-listed companies.
+    
+    Designed for developers, algorithmic traders, and AI agents, this API offers:
+    * **Real-time News Sentiment:** NLP-scored news from major Indian financial sources.
+    * **Sector Analytics:** Aggregated 'mood' tracking for 10+ industry sectors.
+    * **Entity Intelligence:** Structured data for 2200+ NSE stocks.
+    
+    Built for the Indian market, optimized for AI agent consumption.
+    """,
+    version="1.0.0",
+    docs_url="/docs",  # Simplified from /swagger
     redoc_url="/redoc",
     openapi_url="/openapi.json"
 )

@@ -29,6 +29,10 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+from models import (
+    V1NewsResponse, V1EntityResponse, V1SentimentResponse, V1SectorSentimentResponse
+)
+
 v1_router = APIRouter(prefix="/api/v1", tags=["API v1"])
 
 # auto_error=False so RapidAPI requests (no Bearer token) are not auto-rejected
@@ -80,16 +84,25 @@ def get_user_tier(user: dict = Depends(get_api_user)):
 # ---------------------------------------------------------
 # 1. GET /api/v1/news (The Core Product)
 # ---------------------------------------------------------
-@v1_router.get("/news")
+@v1_router.get(
+    "/news",
+    response_model=V1NewsResponse,
+    summary="Search Indian Financial News",
+    description="""
+    Retrieves a paginated list of financial news articles for NSE-listed companies. 
+    Use this endpoint to get real-time sentiment, market-sensitive alerts, and 
+    company-specific news. AIs should use this to understand the 'why' behind stock price movements.
+    """
+)
 async def get_news(
-    symbols: Optional[str] = Query(None, description="Comma-separated NSE tickers e.g. RELIANCE,TCS"),
-    sectors: Optional[str] = Query(None, description="Comma-separated sectors e.g. Banking,IT Services"),
-    sentiment: Optional[str] = Query(None, description="positive, negative, neutral, conflicted"),
-    published_before: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    published_after: Optional[str] = Query(None, description="YYYY-MM-DD"),
-    only_market_sensitive: bool = Query(False, description="Filter for market sensitive news"),
-    limit: int = Query(10, description="Number of results"),
-    page: int = Query(1, description="Pagination page"),
+    symbols: Optional[str] = Query(None, description="Comma-separated NSE tickers e.g. 'RELIANCE,TCS'. Tickers are automatically suffixed with .NS if missing.", example="RELIANCE,HDFCBANK"),
+    sectors: Optional[str] = Query(None, description="Comma-separated industry sectors e.g. 'Banking,IT Services'", example="Banking,Automobile"),
+    sentiment: Optional[str] = Query(None, description="Filter by categorical sentiment: positive, negative, neutral, or conflicted", example="positive"),
+    published_before: Optional[str] = Query(None, description="Filter articles published before this date (YYYY-MM-DD)", example="2024-01-01"),
+    published_after: Optional[str] = Query(None, description="Filter articles published after this date (YYYY-MM-DD)", example="2024-01-01"),
+    only_market_sensitive: bool = Query(False, description="If true, only returns high-impact news (e.g., M&A, Dividends, Earnings). Requires Pro+ tier."),
+    limit: int = Query(10, description="Number of results to return per page. Max 100 for Pro, 1000 for Enterprise.", ge=1, le=1000),
+    page: int = Query(1, description="Pagination page number", ge=1),
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):
@@ -220,11 +233,19 @@ async def get_news(
 # ---------------------------------------------------------
 # 2. GET /api/v1/entities
 # ---------------------------------------------------------
-@v1_router.get("/entities")
+@v1_router.get(
+    "/entities",
+    response_model=V1EntityResponse,
+    summary="List Supported Stocks & Entities",
+    description="""
+    Returns a directory of all NSE-listed stocks supported by the Sentimatix platform.
+    AIs should use this to map company names to their correct ticker symbols or to discover stocks within a specific sector.
+    """
+)
 async def get_entities(
-    sector: Optional[str] = Query(None, description="Filter by sector"),
-    exchange: Optional[str] = Query("NSE", description="Filter by exchange"),
-    search: Optional[str] = Query(None, description="Search by name or symbol"),
+    sector: Optional[str] = Query(None, description="Filter entities by industry sector", example="Banking"),
+    exchange: Optional[str] = Query("NSE", description="Filter by stock exchange. Currently only NSE is supported."),
+    search: Optional[str] = Query(None, description="Fuzzy search by company name or ticker symbol", example="Reliance"),
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):
@@ -265,10 +286,19 @@ async def get_entities(
 # ---------------------------------------------------------
 # 3. GET /api/v1/sentiment (Pro+)
 # ---------------------------------------------------------
-@v1_router.get("/sentiment")
+@v1_router.get(
+    "/sentiment",
+    response_model=V1SentimentResponse,
+    summary="Get Aggregated Stock Sentiment",
+    description="""
+    Retrieves the aggregated sentiment scores for specific stocks over a 7-day or 30-day period.
+    The 'sentiment_label' provides a quick 'Bullish' or 'Bearish' signal based on news volume and scoring.
+    Requires Pro or Enterprise tier.
+    """
+)
 async def get_sentiment(
-    symbols: str = Query(..., description="Comma-separated NSE tickers"),
-    period: str = Query("7d", description="7d or 30d"),
+    symbols: str = Query(..., description="Comma-separated NSE tickers", example="RELIANCE,TCS,INFY"),
+    period: str = Query("7d", description="Lookback window for aggregation: '7d' or '30d'", example="7d"),
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):
@@ -315,10 +345,18 @@ async def get_sentiment(
 # ---------------------------------------------------------
 # 4. GET /api/v1/sentiment/sectors (Pro+)
 # ---------------------------------------------------------
-@v1_router.get("/sentiment/sectors")
+@v1_router.get(
+    "/sentiment/sectors",
+    response_model=V1SectorSentimentResponse,
+    summary="Get Market Sector Sentiment",
+    description="""
+    Analyzes the 'mood' of entire market sectors (e.g., Banking, IT, Auto) by aggregating 
+    sentiment across all stocks within those sectors. AIs should use this for top-down market analysis.
+    """
+)
 async def get_sector_sentiment(
-    sectors: Optional[str] = Query(None, description="Comma-separated sectors"),
-    period: str = Query("7d", description="7d or 30d"),
+    sectors: Optional[str] = Query(None, description="Comma-separated sectors. If empty, returns top sectors.", example="Banking,IT Services"),
+    period: str = Query("7d", description="Lookback window for aggregation: '7d' or '30d'", example="7d"),
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):
