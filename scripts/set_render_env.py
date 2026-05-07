@@ -6,10 +6,10 @@ Utility to set environment variables on a Render service from a local .env file.
 
 Usage examples:
   # Preview changes (no API key required)
-  python scripts/set_render_env.py --service-id <SERVICE_ID> --env-file backend/.env --keys SUPABASE_URL,SUPABASE_KEY
+  python scripts/set_render_env.py --service-id <SERVICE_ID> --env-file apps/api/.env --keys SUPABASE_URL,SUPABASE_KEY
 
   # Apply changes (will perform authenticated API calls)
-  python scripts/set_render_env.py --service-id <SERVICE_ID> --api-key <RENDER_API_KEY> --env-file backend/.env --keys SUPABASE_URL,SUPABASE_KEY --apply
+  python scripts/set_render_env.py --service-id <SERVICE_ID> --api-key <RENDER_API_KEY> --env-file apps/api/.env --keys SUPABASE_URL,SUPABASE_KEY --apply
 
 Notes:
 - The script defaults to dry-run (no API requests) unless `--apply` is passed.
@@ -50,7 +50,7 @@ SENSITIVE_KEYS_HINT = {"KEY", "SECRET", "TOKEN", "PASSWORD"}
 parser = argparse.ArgumentParser(description="Set env vars on Render from a local env file (dry-run by default).")
 parser.add_argument('--service-id', required=True, help='Render service id')
 parser.add_argument('--api-key', required=False, help='Render API key (required for --apply)')
-parser.add_argument('--env-file', default='backend/.env', help='Path to env file (default: backend/.env)')
+parser.add_argument('--env-file', default='apps/api/.env', help='Path to env file (default: apps/api/.env)')
 parser.add_argument('--keys', default='SUPABASE_URL,SUPABASE_KEY', help='Comma-separated list of keys to set (default: SUPABASE_URL,SUPABASE_KEY)')
 parser.add_argument('--apply', action='store_true', help='Actually perform API calls. Without this the script does a dry-run.')
 parser.add_argument('--show', action='store_true', help='Show full values in output (avoid in public logs).')

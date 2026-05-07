@@ -3,7 +3,7 @@
 ## Summary of Changes Made
 
 ### 1. Enhanced Symbol Parsing Logic (Frontend)
-**File:** `Financialdashboarduidesign/src/services/mcpAPI.ts`
+**File:** `apps/dashboard/src/services/mcpAPI.ts`
 
 **Improvements:**
 - ✅ **Comprehensive Symbol Mapping**: Added extensive mapping for 40+ major Indian stocks
@@ -28,7 +28,7 @@
 ```
 
 ### 2. Fixed Sentiment Percentage Formatting (Frontend)
-**File:** `Financialdashboarduidesign/src/services/mcpAPI.ts`
+**File:** `apps/dashboard/src/services/mcpAPI.ts`
 
 **Problem:** Sentiment was showing as "5482.4%" instead of proper percentage
 **Solution:** Fixed percentage calculation to use absolute value and proper formatting
@@ -42,7 +42,7 @@ const sentimentPercent = Math.abs(avgSentiment * 100).toFixed(1);
 ```
 
 ### 3. Enhanced News Relevance Filtering (Backend)
-**File:** `mcp/server/tools/news_tools.py`
+**File:** `apps/mcp/server/tools/news_tools.py`
 
 **Improvements:**
 - ✅ **Company Name Database**: Added comprehensive company name mappings for better news filtering
@@ -61,7 +61,7 @@ company_names = {
 ```
 
 ### 4. Sentiment Score Normalization (Backend)
-**File:** `mcp/server/tools/news_tools.py`
+**File:** `apps/mcp/server/tools/news_tools.py`
 
 **Problem:** Raw sentiment scores were in 0-100 range, causing percentage display issues
 **Solution:** Added normalization to convert scores to -1 to 1 range
@@ -74,7 +74,7 @@ if abs(normalized_sentiment) > 1:
 ```
 
 ### 5. Improved RAG Query Generation (Backend)
-**File:** `mcp/server/tools/orchestrator.py`
+**File:** `apps/mcp/server/tools/orchestrator.py`
 
 **Enhancement:** Made RAG queries more specific based on price movement direction
 
@@ -140,9 +140,9 @@ query_text = f"{symbol} stock price {price_direction} movement analysis reasons 
 
 ## Files Modified
 
-1. `Financialdashboarduidesign/src/services/mcpAPI.ts` - Symbol parsing and sentiment formatting
-2. `mcp/server/tools/news_tools.py` - News relevance and sentiment normalization
-3. `mcp/server/tools/orchestrator.py` - RAG query improvements
+1. `apps/dashboard/src/services/mcpAPI.ts` - Symbol parsing and sentiment formatting
+2. `apps/mcp/server/tools/news_tools.py` - News relevance and sentiment normalization
+3. `apps/mcp/server/tools/orchestrator.py` - RAG query improvements
 
 ## Test Files Created
 

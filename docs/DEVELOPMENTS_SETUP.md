@@ -6,11 +6,11 @@ Your stock developments system is ready! Here's what was created:
 
 ### ✅ Files Created
 
-1. **Database Schema**: `backend/sql/create_stock_developments.sql`
-2. **MCP Tool**: `mcp/tools/identify_developments.py`
-3. **Worker Script**: `worker-NLP/process_developments.py`
-4. **Batch Runner**: `worker-NLP/run_developments.bat`
-5. **API Endpoint**: Added to `backend/server.py`
+1. **Database Schema**: `apps/api/sql/create_stock_developments.sql`
+2. **MCP Tool**: `apps/mcp/tools/identify_developments.py`
+3. **Worker Script**: `workers/nlp/process_developments.py`
+4. **Batch Runner**: `workers/nlp/run_developments.bat`
+5. **API Endpoint**: Added to `apps/api/server.py`
 6. **Frontend Component**: Updated `src/components/RecentDevelopments.tsx`
 
 ## Installation Steps
@@ -18,7 +18,7 @@ Your stock developments system is ready! Here's what was created:
 ### 1. Create Database Table
 ```powershell
 # Connect to your Supabase database and run:
-cd d:\sentimetrix\backend\sql
+cd d:\sentimetrix\apps\api\sql
 psql -h your-db-host -U postgres -d stocksdb -f create_stock_developments.sql
 ```
 
@@ -31,7 +31,7 @@ Or use Supabase SQL Editor:
 
 ```powershell
 # Test identifying developments for one stock
-cd d:\sentimetrix\mcp\tools
+cd d:\sentimetrix\apps\mcp\tools
 python identify_developments.py
 ```
 
@@ -78,7 +78,7 @@ This will:
 5. **Actions Tab**:
    - Click "New..."
    - Action: `Start a program`
-   - Program/script: `D:\sentimetrix\worker-NLP\run_developments.bat`
+   - Program/script: `D:\sentimetrix\workers\nlp\run_developments.bat`
    - Start in: `D:\sentimetrix\worker-NLP`
    - Click OK
 
@@ -133,7 +133,7 @@ Every Hour → Worker Script → Identify Developments → Store in DB → API �
 ### Check Logs
 ```powershell
 # View today's log
-Get-Content worker-NLP\logs\developments_20251125.log -Tail 50
+Get-Content workers\nlp\logs\developments_20251125.log -Tail 50
 ```
 
 ### Query Database
@@ -159,7 +159,7 @@ ORDER BY development_date DESC;
 
 ### Add More Categories
 
-Edit `mcp/tools/identify_developments.py`:
+Edit `apps/mcp/tools/identify_developments.py`:
 
 ```python
 categories = {
@@ -203,7 +203,7 @@ if sentiment_score > 0.3:  # Default is 0.2
 **Worker script fails?**
 - Check Python path in batch file
 - Verify Supabase credentials in .env
-- Check logs in worker-NLP/logs/
+- Check logs in workers/nlp/logs/
 
 ## Next Steps
 

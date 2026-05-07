@@ -1,6 +1,6 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(r"d:\sentimatix\worker-NLP\stock-news\nlp"))
+sys.path.insert(0, os.path.abspath(r"d:\sentimatix\workers/nlp\stock-news\nlp"))
 import asyncio
 import analyze_sentiment_production as asp
 

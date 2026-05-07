@@ -30,7 +30,7 @@
 ## 🔧 Technical Improvements Made
 
 ### 1. Enhanced Symbol Parsing (Frontend)
-**File**: `Financialdashboarduidesign/src/services/mcpAPI.ts`
+**File**: `apps/dashboard/src/services/mcpAPI.ts`
 
 ```typescript
 // Added comprehensive symbol mapping for 40+ major Indian stocks
@@ -44,7 +44,7 @@ const symbolMappings = {
 ```
 
 ### 2. Content-Based News Filtering (Backend)
-**File**: `mcp/server/tools/news_tools.py`
+**File**: `apps/mcp/server/tools/news_tools.py`
 
 ```python
 # Enhanced relevance scoring
@@ -60,7 +60,7 @@ else:
 ```
 
 ### 3. Sentiment Score Normalization (Backend)
-**File**: `mcp/server/tools/news_tools.py`
+**File**: `apps/mcp/server/tools/news_tools.py`
 
 ```python
 # Normalize sentiment scores from 0-100 to -1 to 1 range
@@ -70,7 +70,7 @@ if abs(normalized_sentiment) > 1:
 ```
 
 ### 4. Fixed Sentiment Percentage Display (Frontend)
-**File**: `Financialdashboarduidesign/src/services/mcpAPI.ts`
+**File**: `apps/dashboard/src/services/mcpAPI.ts`
 
 ```typescript
 // Fixed percentage calculation

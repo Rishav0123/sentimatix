@@ -22,7 +22,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r mcp/requirements.txt
+        pip install -r apps/apps/mcp/requirements.txt
 
     - name: Run tests
       run: |
@@ -30,7 +30,7 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build -t sentimatix-backend -f backend/Dockerfile .
+        docker build -t sentimatix-backend -f apps/api/Dockerfile .
 
     - name: Push to GitHub Container Registry
       if: ${{ secrets.CR_PAT }}
