@@ -291,20 +291,150 @@ async def mcp_server_card():
             "name": "Sentimatix",
             "version": "1.0.0"
         },
+        "systemPrompt": "You are a quantitative research agent utilizing the Sentimatix MCP to analyze Indian equities. Always ensure you are querying valid National Stock Exchange of India (NSE) ticker symbols. Provide data-driven, objective analysis using the sentiment and technical indicators returned by the tools.",
         "authentication": {
             "required": False
         },
+        "configSchema": {
+            "type": "object",
+            "properties": {
+                "preferred_currency": {
+                    "type": "string",
+                    "description": "Optional: The preferred currency for financial outputs (defaults to INR).",
+                    "default": "INR"
+                }
+            }
+        },
         "tools": [
-            {"name": "explain_price_change", "description": "Explains why an NSE stock price changed using news, sentiment & technical analysis.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
-            {"name": "analyze_stock_enhanced", "description": "Deep single-stock research report with AI-generated insights.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
-            {"name": "compare_stocks", "description": "Side-by-side comparison of two NSE stocks.", "inputSchema": {"type": "object", "properties": {"symbol1": {"type": "string"}, "symbol2": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol1", "symbol2", "start_date", "end_date"]}},
-            {"name": "get_stock_summary", "description": "Price metrics for an NSE stock: price, change%, high, low, volume.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "period_days": {"type": "integer"}}, "required": ["symbol"]}},
-            {"name": "get_historical_prices", "description": "Daily OHLCV time-series data for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
-            {"name": "get_news_sentiment", "description": "News articles with NLP sentiment scores for an Indian NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
-            {"name": "get_sentiment_aggregate", "description": "Aggregated sentiment stats for an NSE stock over a period.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
-            {"name": "get_technical_analysis", "description": "RSI, MACD, Bollinger Bands, moving averages, support/resistance.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "period_days": {"type": "integer"}}, "required": ["symbol"]}},
-            {"name": "calculate_correlation", "description": "Pearson correlation between two NSE stocks.", "inputSchema": {"type": "object", "properties": {"symbol1": {"type": "string"}, "symbol2": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol1", "symbol2", "start_date", "end_date"]}},
-            {"name": "get_rag_evidence", "description": "Semantic search over Sentimatix news corpus for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "query": {"type": "string"}}, "required": ["symbol", "query"]}},
+            {
+                "name": "explain_price_change", 
+                "description": "Analyzes and explains the driving factors behind an NSE stock's price movement over a specific timeframe. It synthesizes recent financial news, entity-level sentiment scores, and technical indicators to provide a comprehensive narrative of market behavior.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol": {"type": "string", "description": "The stock ticker symbol on the National Stock Exchange of India (e.g., RELIANCE, TCS)."}, 
+                        "start_date": {"type": "string", "description": "The start date of the analysis period in YYYY-MM-DD format."}, 
+                        "end_date": {"type": "string", "description": "The end date of the analysis period in YYYY-MM-DD format."}
+                    }, 
+                    "required": ["symbol", "start_date", "end_date"]
+                }
+            },
+            {
+                "name": "analyze_stock_enhanced", 
+                "description": "Generates a deep, AI-driven single-stock research report. Combines historical price data, moving averages, and news sentiment into a structured analysis to evaluate the overall health and momentum of the equity.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol": {"type": "string", "description": "The stock ticker symbol on the National Stock Exchange of India (e.g., INFY, HDFCBANK)."}, 
+                        "start_date": {"type": "string", "description": "The start date for data collection in YYYY-MM-DD format."}, 
+                        "end_date": {"type": "string", "description": "The end date for data collection in YYYY-MM-DD format."}
+                    }, 
+                    "required": ["symbol", "start_date", "end_date"]
+                }
+            },
+            {
+                "name": "compare_stocks", 
+                "description": "Performs a side-by-side quantitative and qualitative comparison of two NSE stocks. Useful for pair trading analysis or sector peer evaluation based on price performance and media sentiment.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol1": {"type": "string", "description": "The primary stock ticker symbol (e.g., TATAMOTORS)."}, 
+                        "symbol2": {"type": "string", "description": "The secondary stock ticker symbol for comparison (e.g., MARUTI)."}, 
+                        "start_date": {"type": "string", "description": "The start date in YYYY-MM-DD format."}, 
+                        "end_date": {"type": "string", "description": "The end date in YYYY-MM-DD format."}
+                    }, 
+                    "required": ["symbol1", "symbol2", "start_date", "end_date"]
+                }
+            },
+            {
+                "name": "get_stock_summary", 
+                "description": "Fetches fundamental price metrics and recent performance summaries for an NSE-listed stock. Returns the latest closing price, percentage change, daily high/low, and trading volume.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol": {"type": "string", "description": "The NSE stock ticker symbol."}, 
+                        "period_days": {"type": "integer", "description": "The number of days to look back for the summary metrics (e.g., 7, 30, 90)."}
+                    }, 
+                    "required": ["symbol"]
+                }
+            },
+            {
+                "name": "get_historical_prices", 
+                "description": "Retrieves the daily Open, High, Low, Close, and Volume (OHLCV) time-series data for an Indian equity. Essential for charting and custom technical analysis.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol": {"type": "string", "description": "The NSE stock ticker symbol."}, 
+                        "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)."}, 
+                        "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)."}
+                    }, 
+                    "required": ["symbol", "start_date", "end_date"]
+                }
+            },
+            {
+                "name": "get_news_sentiment", 
+                "description": "Fetches recent financial news articles specifically mentioning the target Indian stock, complete with proprietary NLP sentiment scores (ranging from strongly negative to strongly positive) for each article.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol": {"type": "string", "description": "The NSE stock ticker symbol."}, 
+                        "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)."}, 
+                        "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)."}
+                    }, 
+                    "required": ["symbol", "start_date", "end_date"]
+                }
+            },
+            {
+                "name": "get_sentiment_aggregate", 
+                "description": "Calculates the aggregated market mood and sentiment statistics for an NSE stock over a specified period. Useful for tracking sentiment shifts over time.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol": {"type": "string", "description": "The NSE stock ticker symbol."}, 
+                        "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)."}, 
+                        "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)."}
+                    }, 
+                    "required": ["symbol", "start_date", "end_date"]
+                }
+            },
+            {
+                "name": "get_technical_analysis", 
+                "description": "Calculates and returns key technical indicators for an NSE stock, including Relative Strength Index (RSI), Moving Average Convergence Divergence (MACD), Bollinger Bands, and support/resistance levels.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol": {"type": "string", "description": "The NSE stock ticker symbol."}, 
+                        "period_days": {"type": "integer", "description": "The lookback period in days for calculating the indicators (standard is 14 for RSI)."}
+                    }, 
+                    "required": ["symbol"]
+                }
+            },
+            {
+                "name": "calculate_correlation", 
+                "description": "Computes the Pearson correlation coefficient between the daily returns of two NSE stocks over a specific period to measure their statistical relationship.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol1": {"type": "string", "description": "First NSE stock ticker symbol."}, 
+                        "symbol2": {"type": "string", "description": "Second NSE stock ticker symbol."}, 
+                        "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)."}, 
+                        "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)."}
+                    }, 
+                    "required": ["symbol1", "symbol2", "start_date", "end_date"]
+                }
+            },
+            {
+                "name": "get_rag_evidence", 
+                "description": "Performs a semantic search over the Sentimatix financial news corpus. Retrieves specific quotes and evidence related to a query for a particular NSE stock to ground AI responses in factual reporting.", 
+                "inputSchema": {
+                    "type": "object", 
+                    "properties": {
+                        "symbol": {"type": "string", "description": "The NSE stock ticker symbol."}, 
+                        "query": {"type": "string", "description": "The natural language question or topic to search the news corpus for (e.g., 'Q3 earnings report results')."}
+                    }, 
+                    "required": ["symbol", "query"]
+                }
+            }
         ],
         "resources": [],
         "prompts": []
