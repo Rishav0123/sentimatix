@@ -119,7 +119,7 @@ async def get_news(
             limit = min(limit, 1000 if tier == 'enterprise' else 100)
 
         query = supabase.table('news').select('*')
-        count_query = supabase.table('news').select('id', count='exact')
+        count_query = supabase.table('news').select('id', count='estimated')
 
         if symbols:
             sym_list = [s.strip().upper() + '.NS' if not s.endswith('.NS') else s.strip().upper() for s in symbols.split(',')]
