@@ -387,7 +387,7 @@ async def run_stdio():
 
 
 async def run_sse(port: int = 8003):
-    """Run as HTTP+SSE MCP server (for web-based clients)."""
+    """Run as HTTP server with both Streamable HTTP (/mcp) and SSE (/sse) transports."""
     from mcp.server.sse import SseServerTransport
     from starlette.applications import Starlette
     from starlette.routing import Mount, Route
@@ -406,43 +406,69 @@ async def run_sse(port: int = 8003):
         return PlainTextResponse("ok")
 
     async def server_card(request):
-        """Smithery server-card.json — allows Smithery to skip live scanning."""
+        """Smithery server-card.json — correct format per Smithery spec."""
         card = {
-            "name": "Sentimatix",
-            "description": "Real-time NSE/BSE Indian stock market sentiment, news, and technical analysis for AI agents. Covers 2200+ NSE-listed stocks.",
-            "version": "1.0.0",
+            "serverInfo": {
+                "name": "Sentimatix",
+                "version": "1.0.0"
+            },
+            "authentication": {
+                "required": False
+            },
             "tools": [
-                {"name": "explain_price_change", "description": "Orchestrator — explains why an NSE stock price changed using price data, news sentiment, RAG evidence and technical analysis."},
-                {"name": "analyze_stock_enhanced", "description": "Deep single-stock research report with AI-generated insights and technical signals."},
-                {"name": "compare_stocks", "description": "Side-by-side comparison of two NSE stocks: price performance, sentiment, and technical indicators."},
-                {"name": "get_stock_summary", "description": "Price metrics for an NSE stock: change%, high, low, volume, volatility."},
-                {"name": "get_historical_prices", "description": "Daily OHLCV time-series data for charting and analysis."},
-                {"name": "get_news_sentiment", "description": "News articles with NLP sentiment scores for an Indian stock."},
-                {"name": "get_sentiment_aggregate", "description": "Aggregated sentiment stats (avg score, positive/negative/neutral counts) for a period."},
-                {"name": "get_technical_analysis", "description": "RSI, MACD, Bollinger Bands, moving averages, support/resistance levels for an NSE stock."},
-                {"name": "calculate_correlation", "description": "Pearson correlation between two NSE stocks over a period."},
-                {"name": "get_rag_evidence", "description": "Semantic search over the Sentimatix news corpus for an NSE stock."},
-            ]
+                {"name": "explain_price_change", "description": "Orchestrator — explains why an NSE stock price changed using price data, news sentiment, RAG evidence and technical analysis.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+                {"name": "analyze_stock_enhanced", "description": "Deep single-stock research report with AI-generated insights and technical signals.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+                {"name": "compare_stocks", "description": "Side-by-side comparison of two NSE stocks: price performance, sentiment, and technical indicators.", "inputSchema": {"type": "object", "properties": {"symbol1": {"type": "string"}, "symbol2": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol1", "symbol2", "start_date", "end_date"]}},
+                {"name": "get_stock_summary", "description": "Price metrics for an NSE stock over a period: current price, change%, high, low, volume.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "period_days": {"type": "integer"}}, "required": ["symbol"]}},
+                {"name": "get_historical_prices", "description": "Daily OHLCV time-series data for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+                {"name": "get_news_sentiment", "description": "News articles with NLP sentiment scores for an Indian NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}, "top_n": {"type": "integer"}}, "required": ["symbol", "start_date", "end_date"]}},
+                {"name": "get_sentiment_aggregate", "description": "Aggregated sentiment stats for an NSE stock over a period.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+                {"name": "get_technical_analysis", "description": "RSI, MACD, Bollinger Bands, moving averages, support/resistance for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "period_days": {"type": "integer"}}, "required": ["symbol"]}},
+                {"name": "calculate_correlation", "description": "Pearson correlation between two NSE stocks.", "inputSchema": {"type": "object", "properties": {"symbol1": {"type": "string"}, "symbol2": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol1", "symbol2", "start_date", "end_date"]}},
+                {"name": "get_rag_evidence", "description": "Semantic search over Sentimatix news corpus for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}, "query": {"type": "string"}}, "required": ["symbol", "start_date", "end_date", "query"]}},
+            ],
+            "resources": [],
+            "prompts": []
         }
         return JSONResponse(card)
+
+    # Try to add Streamable HTTP transport (required by Smithery)
+    try:
+        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+        session_manager = StreamableHTTPSessionManager(
+            app=mcp,
+            event_store=None,
+            json_response=False,
+            stateless=True,
+        )
+        async def handle_streamable_http(scope, receive, send):
+            await session_manager.handle_request(scope, receive, send)
+        streamable_http_available = True
+        logger.info("Streamable HTTP transport enabled at /mcp")
+    except ImportError:
+        streamable_http_available = False
+        logger.warning("StreamableHTTPSessionManager not available, using SSE only")
+
+    routes = [
+        Route("/", endpoint=health),
+        Route("/health", endpoint=health),
+        Route("/sse", endpoint=handle_sse),
+        Route("/.well-known/mcp/server-card.json", endpoint=server_card),
+        Mount("/messages/", app=sse.handle_post_message),
+    ]
+
+    if streamable_http_available:
+        from starlette.routing import Route as R
+        routes.insert(2, Mount("/mcp", app=handle_streamable_http))
 
     middleware = [
         Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     ]
 
-    starlette_app = Starlette(
-        routes=[
-            Route("/", endpoint=health),
-            Route("/health", endpoint=health),
-            Route("/sse", endpoint=handle_sse),
-            Route("/.well-known/mcp/server-card.json", endpoint=server_card),
-            Mount("/messages/", app=sse.handle_post_message),
-        ],
-        middleware=middleware
-    )
+    starlette_app = Starlette(routes=routes, middleware=middleware)
     config = uvicorn.Config(starlette_app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
-    print(f"[Sentimatix MCP] SSE server listening on http://0.0.0.0:{port}/sse", file=sys.stderr)
+    print(f"[Sentimatix MCP] Server listening on http://0.0.0.0:{port} (SSE: /sse, HTTP: /mcp)", file=sys.stderr)
     await server.serve()
 
 
