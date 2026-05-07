@@ -432,36 +432,66 @@ async def run_sse(port: int = 8003):
         }
         return JSONResponse(card)
 
-    # Try to add Streamable HTTP transport (required by Smithery)
-    try:
-        from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
+    # Simple MCP JSON-RPC over HTTP handler (for Smithery scanning)
+    # Implements just enough of the MCP protocol for scanning to work
+    TOOLS_LIST = [
+        {"name": "explain_price_change", "description": "Explains why an NSE stock price changed using news, sentiment & technical analysis.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+        {"name": "analyze_stock_enhanced", "description": "Deep single-stock research report with AI-generated insights.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+        {"name": "compare_stocks", "description": "Side-by-side comparison of two NSE stocks.", "inputSchema": {"type": "object", "properties": {"symbol1": {"type": "string"}, "symbol2": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol1", "symbol2", "start_date", "end_date"]}},
+        {"name": "get_stock_summary", "description": "Price metrics for an NSE stock: price, change%, high, low, volume.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "period_days": {"type": "integer"}}, "required": ["symbol"]}},
+        {"name": "get_historical_prices", "description": "Daily OHLCV time-series data for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+        {"name": "get_news_sentiment", "description": "News articles with NLP sentiment scores for an Indian NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+        {"name": "get_sentiment_aggregate", "description": "Aggregated sentiment stats for an NSE stock over a period.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol", "start_date", "end_date"]}},
+        {"name": "get_technical_analysis", "description": "RSI, MACD, Bollinger Bands, moving averages, support/resistance.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "period_days": {"type": "integer"}}, "required": ["symbol"]}},
+        {"name": "calculate_correlation", "description": "Pearson correlation between two NSE stocks.", "inputSchema": {"type": "object", "properties": {"symbol1": {"type": "string"}, "symbol2": {"type": "string"}, "start_date": {"type": "string"}, "end_date": {"type": "string"}}, "required": ["symbol1", "symbol2", "start_date", "end_date"]}},
+        {"name": "get_rag_evidence", "description": "Semantic search over Sentimatix news corpus for an NSE stock.", "inputSchema": {"type": "object", "properties": {"symbol": {"type": "string"}, "query": {"type": "string"}}, "required": ["symbol", "query"]}},
+    ]
 
-        session_manager = StreamableHTTPSessionManager(
-            app=mcp,
-            event_store=None,
-            json_response=False,
-            stateless=True,
-        )
+    async def handle_mcp_http(request):
+        """MCP JSON-RPC over HTTP — handles Smithery scanning protocol."""
+        from starlette.responses import JSONResponse
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": None}, status_code=400)
 
-        async def handle_streamable_http(scope, receive, send):
-            await session_manager.handle_request(scope, receive, send)
+        method = body.get("method", "")
+        req_id = body.get("id")
 
-        streamable_http_available = True
-        logger.info("Streamable HTTP transport enabled at /mcp")
-    except Exception as e:
-        streamable_http_available = False
-        logger.warning(f"StreamableHTTPSessionManager not available: {e}, using SSE only")
+        if method == "initialize":
+            return JSONResponse({
+                "jsonrpc": "2.0", "id": req_id,
+                "result": {
+                    "protocolVersion": "2024-11-05",
+                    "serverInfo": {"name": "Sentimatix", "version": "1.0.0"},
+                    "capabilities": {"tools": {}}
+                }
+            })
+        elif method == "notifications/initialized":
+            return JSONResponse({"jsonrpc": "2.0", "id": req_id, "result": {}})
+        elif method == "tools/list":
+            return JSONResponse({
+                "jsonrpc": "2.0", "id": req_id,
+                "result": {"tools": TOOLS_LIST}
+            })
+        elif method == "resources/list":
+            return JSONResponse({"jsonrpc": "2.0", "id": req_id, "result": {"resources": []}})
+        elif method == "prompts/list":
+            return JSONResponse({"jsonrpc": "2.0", "id": req_id, "result": {"prompts": []}})
+        else:
+            return JSONResponse({
+                "jsonrpc": "2.0", "id": req_id,
+                "error": {"code": -32601, "message": f"Method not found: {method}"}
+            })
 
     routes = [
         Route("/", endpoint=health),
         Route("/health", endpoint=health),
+        Route("/mcp", endpoint=handle_mcp_http, methods=["POST", "OPTIONS"]),
         Route("/sse", endpoint=handle_sse),
         Route("/.well-known/mcp/server-card.json", endpoint=server_card),
         Mount("/messages/", app=sse.handle_post_message),
     ]
-
-    if streamable_http_available:
-        routes.insert(2, Mount("/mcp", app=handle_streamable_http))
 
     middleware = [
         Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -470,8 +500,9 @@ async def run_sse(port: int = 8003):
     starlette_app = Starlette(routes=routes, middleware=middleware)
     config = uvicorn.Config(starlette_app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
-    print(f"[Sentimatix MCP] Server listening on http://0.0.0.0:{port} (SSE: /sse, HTTP: /mcp)", file=sys.stderr)
+    print(f"[Sentimatix MCP] Server listening on http://0.0.0.0:{port} (HTTP: /mcp, SSE: /sse)", file=sys.stderr)
     await server.serve()
+
 
 
 if __name__ == "__main__":
