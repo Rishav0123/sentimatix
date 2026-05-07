@@ -435,7 +435,6 @@ async def run_sse(port: int = 8003):
     # Try to add Streamable HTTP transport (required by Smithery)
     try:
         from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-        from contextlib import asynccontextmanager
 
         session_manager = StreamableHTTPSessionManager(
             app=mcp,
@@ -444,12 +443,6 @@ async def run_sse(port: int = 8003):
             stateless=True,
         )
 
-        @asynccontextmanager
-        async def lifespan(app):
-            """Properly start/stop the StreamableHTTP session manager."""
-            async with session_manager:
-                yield
-
         async def handle_streamable_http(scope, receive, send):
             await session_manager.handle_request(scope, receive, send)
 
@@ -457,7 +450,6 @@ async def run_sse(port: int = 8003):
         logger.info("Streamable HTTP transport enabled at /mcp")
     except Exception as e:
         streamable_http_available = False
-        lifespan = None
         logger.warning(f"StreamableHTTPSessionManager not available: {e}, using SSE only")
 
     routes = [
@@ -475,11 +467,7 @@ async def run_sse(port: int = 8003):
         Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     ]
 
-    starlette_app = Starlette(
-        routes=routes,
-        middleware=middleware,
-        lifespan=lifespan if streamable_http_available else None
-    )
+    starlette_app = Starlette(routes=routes, middleware=middleware)
     config = uvicorn.Config(starlette_app, host="0.0.0.0", port=port, log_level="info")
     server = uvicorn.Server(config)
     print(f"[Sentimatix MCP] Server listening on http://0.0.0.0:{port} (SSE: /sse, HTTP: /mcp)", file=sys.stderr)
