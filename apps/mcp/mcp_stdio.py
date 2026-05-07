@@ -25,6 +25,7 @@ Client config (claude_desktop_config.json):
 """
 
 import sys
+import os
 import json
 import asyncio
 import logging
