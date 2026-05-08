@@ -263,24 +263,65 @@ async def auth_check(auth_key: str = Cookie(None)):
         logger.error(f"Auth check error: {str(e)}")
         return {"authenticated": False}
 
-# Root route for API health check
-@app.get("/")
-async def root():
-    """API health check endpoint"""
-    route_list = []
-    for route in app.routes:
-        if hasattr(route, "path") and hasattr(route, "methods"):
-            # Exclude static files and internal routes
-            if not route.path.startswith("/static") and not route.path.startswith("/openapi"):
-                for method in route.methods:
-                    if method in ("GET", "POST", "PUT", "DELETE", "PATCH"):
-                        route_list.append(f"{method} {route.path}")
-    return {
-        "status": "ok",
-        "message": "Stock Analysis API is running",
-        "available_routes": sorted(route_list),
-        "documentation": "/docs"
-    }
+# Root route — returns HTML landing page (for bots/browsers) with Smithery backlink
+from fastapi.responses import HTMLResponse
+
+@app.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    """Landing page with Smithery backlink; returns JSON for API clients."""
+    # If caller explicitly wants JSON, return the health-check dict
+    accept = request.headers.get("accept", "")
+    if "application/json" in accept and "text/html" not in accept:
+        return JSONResponse({
+            "status": "ok",
+            "message": "Sentimatix API — Indian Stock Market Intelligence",
+            "documentation": "/docs",
+            "smithery": "https://smithery.ai/servers/rishavdutta-kgp/sentimatix"
+        })
+
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentimatix — Indian Stock Market Sentiment API</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 60px auto; padding: 0 24px; color: #1a1a2e; }
+    h1 { font-size: 2rem; margin-bottom: 8px; }
+    p  { color: #444; line-height: 1.6; }
+    a  { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .badge { display: inline-block; margin: 16px 0; }
+    .links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 24px; }
+    .links a { background: #2563eb; color: #fff; padding: 10px 20px; border-radius: 6px; font-weight: 600; }
+    .links a:hover { background: #1d4ed8; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <h1>Sentimatix</h1>
+  <p>Real-time Indian stock market sentiment intelligence for AI agents and retail traders.</p>
+
+  <div class="badge">
+    <a href="https://smithery.ai/servers/rishavdutta-kgp/sentimatix" target="_blank" rel="noopener">
+      <img src="https://smithery.ai/badge/rishavdutta-kgp/sentimatix"
+           alt="smithery badge" />
+    </a>
+  </div>
+
+  <p>
+    Provides live NSE/BSE news sentiment, aggregated stock &amp; sector signals, and a
+    <a href="https://smithery.ai/servers/rishavdutta-kgp/sentimatix">Model Context Protocol (MCP) server</a>
+    that plugs directly into Claude, Cursor, and other AI agents.
+  </p>
+
+  <div class="links">
+    <a href="/docs">API Docs</a>
+    <a href="https://smithery.ai/servers/rishavdutta-kgp/sentimatix" target="_blank" rel="noopener">Smithery Registry</a>
+    <a href="https://github.com/Rishav0123/sentimatix" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
 
 # --- MCP Endpoints (For Smithery & Agents) ---
 @app.get("/.well-known/mcp/server-card.json")
