@@ -95,11 +95,11 @@ def get_user_tier(user: dict = Depends(get_api_user)):
     """
 )
 async def get_news(
-    symbols: Optional[str] = Query(None, description="Comma-separated NSE tickers e.g. 'RELIANCE,TCS'. Tickers are automatically suffixed with .NS if missing.", example="RELIANCE,HDFCBANK"),
-    sectors: Optional[str] = Query(None, description="Comma-separated industry sectors e.g. 'Banking,IT Services'", example="Banking,Automobile"),
-    sentiment: Optional[str] = Query(None, description="Filter by categorical sentiment: positive, negative, neutral, or conflicted", example="positive"),
-    published_before: Optional[str] = Query(None, description="Filter articles published before this date (YYYY-MM-DD)", example="2024-01-01"),
-    published_after: Optional[str] = Query(None, description="Filter articles published after this date (YYYY-MM-DD)", example="2024-01-01"),
+    symbols: Optional[str] = Query(None, description="Comma-separated NSE tickers e.g. 'RELIANCE,TCS'. Tickers are automatically suffixed with .NS if missing.", examples={"default": {"value": "RELIANCE,HDFCBANK"}}),
+    sectors: Optional[str] = Query(None, description="Comma-separated industry sectors e.g. 'Banking,IT Services'", examples={"default": {"value": "Banking,Automobile"}}),
+    sentiment: Optional[str] = Query(None, description="Filter by categorical sentiment: positive, negative, neutral, or conflicted", examples={"default": {"value": "positive"}}),
+    published_before: Optional[str] = Query(None, description="Filter articles published before this date (YYYY-MM-DD)", examples={"default": {"value": "2024-01-01"}}),
+    published_after: Optional[str] = Query(None, description="Filter articles published after this date (YYYY-MM-DD)", examples={"default": {"value": "2024-01-01"}}),
     only_market_sensitive: bool = Query(False, description="If true, only returns high-impact news (e.g., M&A, Dividends, Earnings). Requires Pro+ tier."),
     limit: int = Query(10, description="Number of results to return per page. Max 100 for Pro, 1000 for Enterprise.", ge=1, le=1000),
     page: int = Query(1, description="Pagination page number", ge=1),
@@ -243,9 +243,9 @@ async def get_news(
     """
 )
 async def get_entities(
-    sector: Optional[str] = Query(None, description="Filter entities by industry sector", example="Banking"),
+    sector: Optional[str] = Query(None, description="Filter entities by industry sector", examples={"default": {"value": "Banking"}}),
     exchange: Optional[str] = Query("NSE", description="Filter by stock exchange. Currently only NSE is supported."),
-    search: Optional[str] = Query(None, description="Fuzzy search by company name or ticker symbol", example="Reliance"),
+    search: Optional[str] = Query(None, description="Fuzzy search by company name or ticker symbol", examples={"default": {"value": "Reliance"}}),
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):
@@ -297,8 +297,8 @@ async def get_entities(
     """
 )
 async def get_sentiment(
-    symbols: str = Query(..., description="Comma-separated NSE tickers", example="RELIANCE,TCS,INFY"),
-    period: str = Query("7d", description="Lookback window for aggregation: '7d' or '30d'", example="7d"),
+    symbols: str = Query(..., description="Comma-separated NSE tickers", examples={"default": {"value": "RELIANCE,TCS,INFY"}}),
+    period: str = Query("7d", description="Lookback window for aggregation: '7d' or '30d'", examples={"default": {"value": "7d"}}),
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):
@@ -355,8 +355,8 @@ async def get_sentiment(
     """
 )
 async def get_sector_sentiment(
-    sectors: Optional[str] = Query(None, description="Comma-separated sectors. If empty, returns top sectors.", example="Banking,IT Services"),
-    period: str = Query("7d", description="Lookback window for aggregation: '7d' or '30d'", example="7d"),
+    sectors: Optional[str] = Query(None, description="Comma-separated sectors. If empty, returns top sectors.", examples={"default": {"value": "Banking,IT Services"}}),
+    period: str = Query("7d", description="Lookback window for aggregation: '7d' or '30d'", examples={"default": {"value": "7d"}}),
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):
