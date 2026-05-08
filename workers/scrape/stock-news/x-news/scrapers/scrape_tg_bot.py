@@ -98,7 +98,7 @@ channel_usernames = ('stocktwitsindia', 'moneycontrolcom')  # Example: '@finance
 output_csv = 'tg_financial_news.csv'
 
 # Number of messages to fetch
-limit = 200
+limit = 1000
 
 
 def clean_title(title):
@@ -691,24 +691,20 @@ if __name__ == "__main__":
             logger.info("No active stocks found in database")
             exit(1)
 
-    logger.info(f"Found {len(stocks)} active stocks to process")
-    total_found = 0
-    total_inserted = 0
-    total_skipped = 0
-    successful_stocks = 0
+    logger.info(f"Found {len(stocks)} active stocks to process in this batch")
     
-    # Enhanced statistics tracking
-    keyword_performance = {}
-    stock_performance = {}
-    seen_urls_this_run = set()  # In-run URL dedup to avoid redundant DB checks
-
+    # 1. Aggregate all unique keywords from all stocks to scrape once
+    all_keywords = set()
+    stock_map = {} # symbol -> keywords
+    stock_id_map = {} # symbol -> id
+    stock_name_map = {} # symbol -> name
+    
     for stock in stocks:
-        id = stock['id']
-        yfin_symbol = stock.get('yfin_symbol')
-        stock_name = stock.get('stock_name', yfin_symbol)
-        keywords = []
+        symbol = stock.get('yfin_symbol')
+        stock_id_map[symbol] = stock['id']
+        stock_name_map[symbol] = stock.get('stock_name', symbol)
         
-        # Parse keywords from keyword_lst (JSON column)
+        keywords = []
         if stock.get('keyword_lst'):
             try:
                 kw_obj = json.loads(stock['keyword_lst']) if isinstance(stock['keyword_lst'], str) else stock['keyword_lst']
@@ -717,149 +713,102 @@ if __name__ == "__main__":
                 elif isinstance(kw_obj, list):
                     keywords = kw_obj
             except Exception as e:
-                logger.error(f"Error parsing keywords for {id}: {e}")
+                logger.error(f"Error parsing keywords for {symbol}: {e}")
         
-        if not keywords:
-            logger.info(f"No keywords found for {yfin_symbol}, skipping.")
+        stock_map[symbol] = keywords
+        for kw in keywords:
+            all_keywords.add(kw)
+
+    if not all_keywords:
+        logger.info("No keywords found for any stocks in this batch. Exiting.")
+        exit(0)
+
+    # 2. Scrape Telegram once for all keywords
+    logger.info(f"Scraping Telegram for {len(all_keywords)} total keywords across {len(stocks)} stocks...")
+    try:
+        # We pass all_keywords to scrape_telegram_news
+        # It will return articles that matched AT LEAST ONE keyword
+        all_found_articles = asyncio.run(scrape_telegram_news(keywords_list=list(all_keywords)))
+    except Exception as e:
+        logger.error(f"Fatal error during Telegram scraping: {e}")
+        exit(1)
+
+    logger.info(f"Found {len(all_found_articles)} potential articles. Mapping to stocks...")
+
+    # 3. Map articles back to stocks and store them
+    total_inserted = 0
+    total_skipped = 0
+    seen_urls_this_run = set()
+    scraped_at = datetime.now().isoformat()
+    stock_metrics = {s.get('yfin_symbol'): 0 for s in stocks}
+
+    for article in all_found_articles:
+        article_url = article.get('url')
+        if not article_url:
             continue
-        
-        inserted = 0
-        skipped = 0
-        found = 0
-        
-        logger.info(f"\n🔍 Processing {yfin_symbol} ({stock_name})")
-        logger.info(f"   Keywords: {keywords}")
-        
-        # ENHANCED: Use all keywords together for better matching context
-        try:
-            # Use enhanced keyword matching with ALL keywords for this stock
-            news = asyncio.run(scrape_telegram_news(keywords_list=keywords))
-            logger.info(f"   ✅ {len(news)} high-quality articles found with enhanced matching")
-            found += len(news)
             
-            if found > 0:
-                successful_stocks += 1
+        # Optimization: Each article already has 'tags' which contain matched keywords
+        matched_kws_in_article = article.get('tags', [])
+        
+        # Find which stocks match this article
+        for symbol, keywords in stock_map.items():
+            # Check if any of this stock's keywords are in the article's matched keywords
+            stock_matches = [kw for kw in keywords if kw in matched_kws_in_article]
             
-            scraped_at = datetime.now().isoformat()
-            sentiment = None
-            sentiment_score = None
-            
-            for article in news:
-                # Normalize + clean title before saving (strips emojis, collapses whitespace)
-                raw_title = article.get('title', '')
-                article['title'] = normalize_title(clean_title(raw_title))
-                article['stock_id'] = id        # FK to stocks table
-                article.pop('id', None)         # Let Supabase auto-generate the news PK
-                article['scraped_at'] = scraped_at
-                article['sentiment'] = sentiment
-                article['sentiment_score'] = sentiment_score
-                article['yfin_symbol'] = yfin_symbol
-                article['stock_name'] = stock_name
+            if stock_matches:
+                # This article belongs to this stock!
+                # Create a copy for this stock
+                stock_article = article.copy()
+                stock_article['title'] = normalize_title(clean_title(stock_article.get('title', '')))
+                stock_article['stock_id'] = stock_id_map[symbol]
+                stock_article['yfin_symbol'] = symbol
+                stock_article['stock_name'] = stock_name_map[symbol]
+                stock_article['scraped_at'] = scraped_at
+                stock_article['sentiment'] = None
+                stock_article['sentiment_score'] = None
                 
-                # Ensure published_date is a string
-                if 'published_date' in article and article['published_date'] is not None:
-                    if hasattr(article['published_date'], 'isoformat'):
-                        article['published_date'] = article['published_date'].isoformat()
+                # Ensure published_date is string
+                if 'published_date' in stock_article and stock_article['published_date'] is not None:
+                    if hasattr(stock_article['published_date'], 'isoformat'):
+                        stock_article['published_date'] = stock_article['published_date'].isoformat()
                     else:
-                        article['published_date'] = str(article['published_date'])
-                
-                # Remove metadata before storing (starts with _)
-                article_to_store = {k: v for k, v in article.items() if not k.startswith('_')}
-                
-                # In-run URL dedup: skip if we already processed this URL in this session
-                article_url = article_to_store.get('url')
-                if article_url and article_url in seen_urls_this_run:
-                    skipped += 1
-                    logger.debug(f"   ⏭️ In-run duplicate URL skipped: {article_url[:80]}")
+                        stock_article['published_date'] = str(stock_article['published_date'])
+
+                # Dedup by (URL, Stock) to avoid duplicate entries for the same stock
+                dedup_key = f"{article_url}_{symbol}"
+                if dedup_key in seen_urls_this_run:
+                    total_skipped += 1
                     continue
-                if article_url:
-                    seen_urls_this_run.add(article_url)
+                seen_urls_this_run.add(dedup_key)
+
+                # Remove metadata
+                article_to_store = {k: v for k, v in stock_article.items() if not k.startswith('_')}
                 
-                # Log article details for monitoring
-                extracted_keywords = article.get('tags', [])
-                matched_stock_keywords = [kw for kw in extracted_keywords if kw in keywords]
-                logger.debug(f"   📰 Storing: '{article_to_store.get('title', '')[:60]}...' (matched: {matched_stock_keywords})")
-                
-                add_news = store_news_article(article_to_store)
-                if add_news:
-                    inserted += 1
+                # Store in DB
+                if store_news_article(article_to_store):
+                    total_inserted += 1
+                    stock_metrics[symbol] += 1
                 else:
-                    skipped += 1
-                    
-        except Exception as e:
-            logger.error(f"Error processing {yfin_symbol}: {e}")
-            continue
+                    total_skipped += 1
 
-        
-        # Track performance statistics
-        stock_performance[yfin_symbol] = {
-            'found': found,
-            'inserted': inserted,
-            'skipped': skipped,
-            'keywords': keywords,
-            'success_rate': (found / len(keywords)) if keywords else 0
-        }
-        
-        logger.info(f"   📊 Stock summary: Found={found}, Inserted={inserted}, Skipped={skipped}")
-        total_found += found
-        total_inserted += inserted
-        total_skipped += skipped
-
-    # Enhanced final reporting
+    logger.info(f"\n✅ Finished processing batch.")
+    logger.info(f"📊 Total Inserted: {total_inserted}")
+    logger.info(f"📊 Total Skipped: {total_skipped}")
+    
+    # Output metrics for orchestrator
+    print(f"\nMETRICS: {json.dumps(stock_metrics)}")
     logger.info(f"\n{'='*80}")
-    logger.info(f"🎯 PRODUCTION ENHANCED SCRAPING FINAL REPORT")
+    logger.info(f"🎯 PRODUCTION ENHANCED SCRAPING BATCH COMPLETE")
     logger.info(f"{'='*80}")
-    logger.info(f"📈 Overall Statistics:")
-    logger.info(f"   Total stocks processed: {len(stocks)}")
-    logger.info(f"   Successful stocks (found articles): {successful_stocks}")
-    logger.info(f"   Success rate: {(successful_stocks/len(stocks))*100:.1f}%")
-    logger.info(f"   Total articles found: {total_found}")
+    logger.info(f"📈 Batch Statistics:")
+    logger.info(f"   Total stocks in batch: {len(stocks)}")
     logger.info(f"   Total articles inserted: {total_inserted}")
-    logger.info(f"   Total articles skipped (duplicates): {total_skipped}")
+    logger.info(f"   Total articles skipped: {total_skipped}")
     
-    if total_found > 0:
-        logger.info(f"   Average articles per successful stock: {total_found/successful_stocks:.1f}")
-    
-    # Top performing stocks
-    if stock_performance:
-        top_performers = sorted(stock_performance.items(), key=lambda x: x[1]['found'], reverse=True)[:5]
-        logger.info(f"\n🏆 Top 5 performing stocks:")
-        for symbol, perf in top_performers:
-            if perf['found'] > 0:
-                logger.info(f"   {symbol}: {perf['found']} articles (keywords: {len(perf['keywords'])})")
-    
-    logger.info(f"\n🚀 Enhanced Features Active:")
-    logger.info(f"   ✅ Production-ready keyword matching")
-    logger.info(f"   ✅ Financial context validation (45+ indicators)")
-    logger.info(f"   ✅ False positive prevention (92.9% accuracy)")
-    logger.info(f"   ✅ Smart content extraction with priority methods")
-    logger.info(f"   ✅ Quality filtering for meaningful articles")
-    logger.info(f"   ✅ Comprehensive logging and monitoring")
-    
-    if total_found > 0:
-        logger.info(f"\n🎉 SUCCESS: Enhanced scraping delivered {total_found} high-quality financial articles!")
-    else:
-        logger.warning(f"\n⚠️ No articles found - check keywords or channel activity")
-    
-    # Output metrics for the orchestrator to capture
-    metrics_summary = {symbol: perf['inserted'] for symbol, perf in stock_performance.items()}
-    print(f"\nMETRICS: {json.dumps(metrics_summary)}")
-            #             inserted += 1
-    #         stock_news.extend(news)
-    #     news_count_per_stock[id] = len(stock_news)
-    #     all_news.extend(stock_news)
-    #     insert_report[id] = {"inserted": inserted, "skipped": skipped}
-    # print("\nSummary: News articles per stock:")
-    # for stock_id, count in news_count_per_stock.items():
-    #     print(f"{stock_id}: {count}")
-    # print("\nInsert/Skip Report per stock:")
-    # for stock_id, report in insert_report.items():
-    #     print(f"{stock_id}: Inserted={report['inserted']}, Skipped={report['skipped']}")
-    # if all_news:
-    #     save_news(all_news)
-    #     print(f"\nSaved {len(all_news)} articles to article.json")
-    # else:
-    #     print("No news articles found.")
+    logger.info(f"\n🚀 Batching optimization: ACTIVE (One TG connection per batch)")
+    logger.info(f"   ✅ Prevents session lock issues")
+    logger.info(f"   ✅ Reduces network overhead")
+    logger.info(f"   ✅ Better rate limit compliance")
 
     
 

@@ -131,21 +131,21 @@ def main():
     run_id = str(uuid.uuid4())
     logger.info(f"Current Run ID: {run_id}")
 
-    # 2. Parallelize Google News (Disabled for now)
-    # gnews_batches = list(chunk_list(all_stocks, 50))
-    # logger.info(f"Running Google News in {len(gnews_batches)} batches...")
+    # 2. Parallelize Google News
+    gnews_batches = list(chunk_list(all_stocks, 50))
+    logger.info(f"Running Google News in {len(gnews_batches)} batches...")
     
-    # gnews_metrics = {}
-    # with ProcessPoolExecutor(max_workers=10) as executor:
-    #     futures = [executor.submit(run_scraper_batch, 'scrape_gnews.py', batch, run_id) for batch in gnews_batches]
-    #     for future in as_completed(futures):
-    #         res = future.result()
-    #         logger.info(res['message'])
-    #         if res['metrics']:
-    #             for sym, count in res['metrics'].items():
-    #                 gnews_metrics[sym] = gnews_metrics.get(sym, 0) + count
+    gnews_metrics = {}
+    with ProcessPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(run_scraper_batch, 'scrape_gnews.py', batch, run_id) for batch in gnews_batches]
+        for future in as_completed(futures):
+            res = future.result()
+            logger.info(res['message'])
+            if res['metrics']:
+                for sym, count in res['metrics'].items():
+                    gnews_metrics[sym] = gnews_metrics.get(sym, 0) + count
     
-    # log_scraper_report('gnews', run_id, gnews_metrics)
+    log_scraper_report('gnews', run_id, gnews_metrics)
 
     # 3. Parallelize MoneyControl
     mc_batches = list(chunk_list(all_stocks, 5))
@@ -163,6 +163,19 @@ def main():
                     mc_metrics[sym] = val
                     
     log_scraper_report('moneycontrol', run_id, mc_metrics)
+
+    # 4. Telegram (Single Fetch Optimization)
+    # We use a single batch for all stocks to ensure we only connect and fetch from Telegram once.
+    # This is the most efficient and rate-limit-friendly approach.
+    logger.info(f"Running Telegram for all {len(all_stocks)} stocks in a single pass...")
+    
+    tg_metrics = {}
+    res = run_scraper_batch('scrape_tg_bot.py', all_stocks, run_id)
+    logger.info(res['message'])
+    if res['metrics']:
+        tg_metrics = res['metrics']
+                    
+    log_scraper_report('tg', run_id, tg_metrics)
 
     logger.info("Orchestration complete.")
 

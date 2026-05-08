@@ -623,7 +623,7 @@ async def run_sse(port: int = 8003):
 
 
 
-if __name__ == "__main__":
+def main():
     # Ensure log directory exists
     (ROOT / "logs").mkdir(exist_ok=True)
 
@@ -636,3 +636,6 @@ if __name__ == "__main__":
         asyncio.run(run_sse(port))
     else:
         asyncio.run(run_stdio())
+
+if __name__ == "__main__":
+    main()
