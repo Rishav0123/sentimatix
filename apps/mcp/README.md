@@ -1,5 +1,7 @@
 # Sentimatix MCP Server
 
+[![smithery badge](https://smithery.ai/badge/rishavdutta-kgp/sentimatix)](https://smithery.ai/servers/rishavdutta-kgp/sentimatix)
+
 Real-time Indian stock market intelligence via the **Model Context Protocol (MCP)**. Plug Sentimatix directly into Claude Desktop, Cursor, or any MCP-compatible AI agent to get live NSE/BSE sentiment, news, and technical analysis.
 
 ## 🏗️ Architecture
