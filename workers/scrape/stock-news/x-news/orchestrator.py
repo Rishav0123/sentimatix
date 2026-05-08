@@ -117,10 +117,24 @@ def chunk_list(data, chunk_size):
     for i in range(0, len(data), chunk_size):
         yield data[i:i + chunk_size]
 
+def warmup_chrome_driver():
+    """Ensures the Chrome driver is installed once before parallel workers start."""
+    try:
+        # Import inside function to avoid dependency issues if not using Selenium scrapers
+        from webdriver_manager.chrome import ChromeDriverManager
+        logger.info("Warming up Chrome driver...")
+        ChromeDriverManager().install()
+        logger.info("Chrome driver warmup complete.")
+    except Exception as e:
+        logger.error(f"Failed to warmup Chrome driver: {e}")
+
 def main():
     logger.info("Starting Parallel Orchestrator...")
     
-    # 1. Fetch all active stocks
+    # 1. Warm up resources
+    warmup_chrome_driver()
+    
+    # 2. Fetch all active stocks
     all_stocks = get_active_stocks()
     if not all_stocks:
         logger.error("No active stocks found. Exiting.")

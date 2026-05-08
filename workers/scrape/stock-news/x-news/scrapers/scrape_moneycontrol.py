@@ -159,9 +159,10 @@ if __name__ == "__main__":
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
     
-    # Unique log file for this batch
+    # Unique log file for this batch (using PID to avoid conflicts in parallel)
     batch_suffix = f"_{args.run_id[:8]}" if args.run_id else ""
-    log_file = log_dir / f"moneycontrol_{datetime.now().strftime('%Y%m%d')}{batch_suffix}.log"
+    pid_suffix = f"_pid{os.getpid()}"
+    log_file = log_dir / f"moneycontrol_{datetime.now().strftime('%Y%m%d')}{batch_suffix}{pid_suffix}.log"
     
     file_handler = logging.FileHandler(log_file, encoding='utf-8')
     stream_handler = logging.StreamHandler()
