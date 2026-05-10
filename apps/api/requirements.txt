@@ -8,3 +8,4 @@ authlib
 itsdangerous
 razorpay
 mixpanel
+yfinance>=0.2.40

@@ -129,6 +129,9 @@ def warmup_chrome_driver():
         logger.error(f"Failed to warmup Chrome driver: {e}")
 
 def main():
+    print(f"\n[DEBUG] Starting Parallel Orchestrator...")
+    print(f"[DEBUG] Script path: {__file__}")
+    print(f"[DEBUG] Current working directory: {os.getcwd()}")
     logger.info("Starting Parallel Orchestrator...")
     
     # 1. Warm up resources
@@ -146,24 +149,38 @@ def main():
     logger.info(f"Current Run ID: {run_id}")
 
     # 2. Parallelize Google News
-    gnews_batches = list(chunk_list(all_stocks, 50))
-    logger.info(f"Running Google News in {len(gnews_batches)} batches...")
-    
-    gnews_metrics = {}
-    with ProcessPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(run_scraper_batch, 'scrape_gnews.py', batch, run_id) for batch in gnews_batches]
-        for future in as_completed(futures):
-            res = future.result()
-            logger.info(res['message'])
-            if res['metrics']:
-                for sym, count in res['metrics'].items():
-                    gnews_metrics[sym] = gnews_metrics.get(sym, 0) + count
-    
-    log_scraper_report('gnews', run_id, gnews_metrics)
+    print(f"\n[DEBUG] Entering Google News block. all_stocks length: {len(all_stocks)}")
+    try:
+        gnews_batches = list(chunk_list(all_stocks, 50))
+        print(f"[DEBUG] Google News batches: {len(gnews_batches)}")
+        logger.info(f"Running Google News in {len(gnews_batches)} batches...")
+        
+        gnews_metrics = {}
+        if gnews_batches:
+            with ProcessPoolExecutor(max_workers=10) as executor:
+                futures = [executor.submit(run_scraper_batch, 'scrape_gnews.py', batch, run_id) for batch in gnews_batches]
+                for future in as_completed(futures):
+                    try:
+                        res = future.result()
+                        logger.info(res['message'])
+                        if res['metrics']:
+                            for sym, count in res['metrics'].items():
+                                gnews_metrics[sym] = gnews_metrics.get(sym, 0) + count
+                    except Exception as fe:
+                        print(f"[DEBUG] Future result error in GNews: {fe}")
+        
+        log_scraper_report('gnews', run_id, gnews_metrics)
+    except Exception as ge:
+        print(f"[DEBUG] CRITICAL ERROR in Google News block: {ge}")
+        import traceback
+        traceback.print_exc()
 
     # 3. Parallelize MoneyControl
-    mc_batches = list(chunk_list(all_stocks, 5))
-    logger.info(f"Running MoneyControl in {len(mc_batches)} batches (5 stocks each)...")
+    print(f"\n[DEBUG] Entering MoneyControl block.")
+    try:
+        mc_batches = list(chunk_list(all_stocks, 5))
+        print(f"[DEBUG] MoneyControl batches: {len(mc_batches)}")
+        logger.info(f"Running MoneyControl in {len(mc_batches)} batches (5 stocks each)...")
     
     mc_metrics = {}
     with ProcessPoolExecutor(max_workers=8) as executor:
@@ -177,19 +194,27 @@ def main():
                     mc_metrics[sym] = val
                     
     log_scraper_report('moneycontrol', run_id, mc_metrics)
+    except Exception as me:
+        print(f"[DEBUG] CRITICAL ERROR in MoneyControl block: {me}")
+        import traceback
+        traceback.print_exc()
 
     # 4. Telegram (Single Fetch Optimization)
-    # We use a single batch for all stocks to ensure we only connect and fetch from Telegram once.
-    # This is the most efficient and rate-limit-friendly approach.
-    logger.info(f"Running Telegram for all {len(all_stocks)} stocks in a single pass...")
-    
-    tg_metrics = {}
-    res = run_scraper_batch('scrape_tg_bot.py', all_stocks, run_id)
-    logger.info(res['message'])
-    if res['metrics']:
-        tg_metrics = res['metrics']
-                    
-    log_scraper_report('tg', run_id, tg_metrics)
+    print(f"\n[DEBUG] Entering Telegram block.")
+    try:
+        logger.info(f"Running Telegram for all {len(all_stocks)} stocks in a single pass...")
+        
+        tg_metrics = {}
+        res = run_scraper_batch('scrape_tg_bot.py', all_stocks, run_id)
+        logger.info(res['message'])
+        if res['metrics']:
+            tg_metrics = res['metrics']
+                        
+        log_scraper_report('tg', run_id, tg_metrics)
+    except Exception as te:
+        print(f"[DEBUG] CRITICAL ERROR in Telegram block: {te}")
+        import traceback
+        traceback.print_exc()
 
     logger.info("Orchestration complete.")
 

@@ -1,0 +1,264 @@
+# AMD GPU — What to Run & What to Build for Sentimatix
+
+---
+
+## Part 1: Should You Upgrade from FinBERT?
+
+### What FinBERT Gets Wrong
+
+Your current model (`ProsusAI/finbert`) was trained on English Reuters/Bloomberg financial news from 2006–2010. It has known weaknesses for your use case:
+
+- **Indian market context**: No training on NSE/BSE terminology, Indian company names, SEBI language, or "₹" denominated news
+- **Short headlines**: FinBERT was trained on paragraph-length articles. Your titles are often 10–15 words
+- **Sarcasm / nuance**: "Adani group faces another 'small' regulatory hurdle" → FinBERT reads as neutral
+- **Conflated entity scores**: No native understanding of which part of a multi-stock article refers to which company (you've built custom logic around this)
+
+### The Upgrade Options (Ranked for Your Use Case)
+
+#### Option A: `nickmuchi/deberta-v3-base-finetuned-finance-text-classification` ⭐ Best Drop-in Upgrade
+
+DeBERTa-v3 uses a superior attention mechanism (disentangled attention + enhanced mask decoder) that consistently outperforms BERT-based models on classification tasks.
+
+| Metric | FinBERT (ProsusAI) | DeBERTa-v3-finance |
+|--------|-------------------|--------------------|
+| Architecture | BERT-base (110M params) | DeBERTa-v3-base (184M params) |
+| F1 on FiQA | ~72% | ~79% |
+| F1 on Financial PhraseBank | ~87% | ~93% |
+| Inference speed (CPU) | Fast | 25% slower |
+| Inference speed (GPU batch) | Same range | Same range |
+| Drop-in replacement | ✅ Same 3-class output | ✅ Yes |
+
+**Why it matters for you**: Financial PhraseBank is the closest benchmark to your Indian stock news headlines. A 6-point F1 improvement means ~6% fewer misclassified articles at scale.
+
+```python
+# Current (FinBERT)
+self.sentiment = pipeline(
+    "sentiment-analysis",
+    model="ProsusAI/finbert",
+    top_k=None,
+    device=0
+)
+
+# Upgraded (DeBERTa-v3)
+self.sentiment = pipeline(
+    "sentiment-analysis",
+    model="nickmuchi/deberta-v3-base-finetuned-finance-text-classification",
+    top_k=None,
+    device=0
+)
+# Label mapping: "Bearish" → negative, "Bullish" → positive, "Neutral" → neutral
+# You'd add one line in _normalize_scores() to handle "bearish"/"bullish" label names
+```
+
+#### Option B: LLM-as-Classifier (Llama 3 8B via vLLM) — Higher Quality, Higher Cost
+
+Instead of a dedicated classifier, prompt an LLM to return structured sentiment. This gets you **reasoning + sentiment** in one call.
+
+```python
+prompt = """
+Analyze the sentiment of this Indian stock market news for {stock_name}.
+Return JSON: {{"sentiment": "positive|negative|neutral", "score": -1.0 to 1.0, "reason": "..."}}
+
+News: {text}
+"""
+```
+
+- F1 accuracy: **~91–94%** on financial benchmarks (vs FinBERT's 87%)
+- Gives you a **reason string** you can expose via your API — a huge differentiator
+- Slower: ~200ms/article vs ~5ms for FinBERT on GPU
+- Best for: **premium API tier**, not bulk backfill
+
+#### Option C: Fine-tune FinBERT on Your Own Data (Long-term Moat)
+
+You have a unique asset: **thousands of labeled Indian stock news articles** in Supabase (those with `sentiment`, `sentiment_score`). You could fine-tune FinBERT or DeBERTa on your own corpus. This would produce a model that understands "Tata Motors gained on Dalal Street" better than any generic model.
+
+- Requires ~2–4 hours of AMD MI300X training time (~$4–8 one-time cost)
+- Result: a private model you own, with accuracy tuned for NSE/BSE news
+- Deployable on HuggingFace private repo or self-hosted
+
+**Recommendation for now**: Switch to **DeBERTa-v3** (Option A). It's 1 line change, no new infra, ~6% accuracy gain, and works identically to your current pipeline on AMD GPU.
+
+---
+
+## Part 2: The Telegram Daily Digest — This is a Great Idea
+
+### What You're Building
+
+> A Telegram channel that posts daily: top movers, major news summaries, key points per stock — all AI-generated from your Sentimatix data.
+
+This is perfectly suited for AMD GPU because it uses an **LLM to generate rich narrative text** from structured data you already have.
+
+### Architecture
+
+```
+Daily Cron (6PM IST, after market close)
+  │
+  ├─ 1. Query Supabase → top 10 stocks by sentiment_score delta today
+  ├─ 2. Fetch today's news articles for those stocks
+  ├─ 3. Spin up AMD GPU Droplet (or use always-on if heavy usage)
+  ├─ 4. vLLM serving Llama 3 70B
+  ├─ 5. Generate digest (structured prompt → markdown output)
+  ├─ 6. Post to Telegram channel via bot API
+  └─ 7. Destroy GPU droplet
+```
+
+### The Prompt Structure
+
+```python
+DAILY_DIGEST_PROMPT = """
+You are Sentimatix, an AI financial analyst covering Indian stock markets (NSE/BSE).
+
+Today's date: {date}
+Market close: Nifty 50 at {nifty_level} ({nifty_change}%)
+
+Top movers data:
+{stock_data}  # JSON: [{stock, sentiment_score, score_delta, top_headlines}]
+
+Write a concise Telegram-formatted daily digest covering:
+1. 📈 TOP GAINERS (sentiment) — 2-3 sentences each
+2. 📉 TOP LOSERS (sentiment) — 2-3 sentences each  
+3. 🔥 KEY THEME OF THE DAY — what story dominated Indian markets today
+4. ⚡ WATCH TOMORROW — 1-2 stocks to watch based on momentum
+
+Format for Telegram (use **bold**, bullet points). Keep total under 1500 chars.
+DO NOT make price predictions. Report sentiment and news only.
+"""
+```
+
+### Model Choice for Telegram Digest
+
+| Model | VRAM Needed | Quality | Speed (70 articles) | Cost/Run |
+|-------|------------|---------|---------------------|----------|
+| Llama 3.1 8B | 16 GB | Good | ~5 sec | ~$0.003 |
+| Llama 3.1 70B | 140 GB (fits in MI300X 192GB!) | Excellent | ~30 sec | ~$0.02 |
+| Qwen2.5 72B | 144 GB | Excellent, better at structured output | ~35 sec | ~$0.02 |
+| Mistral 7B | 14 GB | Good | ~4 sec | ~$0.002 |
+
+**Recommendation**: Start with **Llama 3.1 8B** for daily digests. The MI300X fits it entirely in VRAM. Cost per daily digest: **under 1 cent**. Upgrade to 70B only if output quality isn't good enough.
+
+### vLLM Setup on AMD (OpenAI-compatible API)
+
+```bash
+# On GPU droplet — AMD's official vLLM Docker
+docker pull rocm/vllm
+
+docker run -it \
+  --device=/dev/kfd --device=/dev/dri --group-add video \
+  -p 8000:8000 \
+  rocm/vllm \
+  python -m vllm.entrypoints.openai.api_server \
+    --model meta-llama/Meta-Llama-3.1-8B-Instruct \
+    --gpu-memory-utilization 0.90
+```
+
+```python
+# Your Python script calls it like OpenAI — zero new SDK needed
+from openai import OpenAI
+
+client = OpenAI(base_url="http://YOUR_DROPLET_IP:8000/v1", api_key="none")
+
+response = client.chat.completions.create(
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+    messages=[{"role": "user", "content": DAILY_DIGEST_PROMPT.format(...)}],
+    max_tokens=600
+)
+
+digest_text = response.choices[0].message.content
+```
+
+```python
+# Post to Telegram
+import httpx
+
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+CHANNEL_ID = "@sentimatix_daily"
+
+httpx.post(
+    f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+    json={"chat_id": CHANNEL_ID, "text": digest_text, "parse_mode": "Markdown"}
+)
+```
+
+---
+
+## Part 3: Other AMD GPU Use Cases for Sentimatix
+
+### Use Case 3: Earnings Call Transcript Summarization
+
+Indian companies release quarterly earnings call transcripts (PDFs) on BSE/NSE. These are 20–50 page documents. An LLM can:
+
+- Extract management tone (bullish/cautious/defensive)
+- Pull out key guidance numbers
+- Identify risks mentioned
+- Generate a 5-bullet summary for your API response
+
+This is something **Bloomberg Terminal charges thousands of dollars for**. You could offer it as a premium endpoint.
+
+```python
+# New API endpoint you could add:
+GET /api/v1/earnings-summary?stock=RELIANCE&quarter=Q4FY25
+→ {
+    "management_tone": "cautiously optimistic",
+    "key_guidance": "15% revenue growth expected in H1FY26",
+    "risks_mentioned": ["crude price volatility", "telecom competition"],
+    "summary": "Reliance management expressed confidence in...",
+    "sentiment_score": 0.42
+  }
+```
+
+### Use Case 4: Custom FinBERT Fine-Tuning (One-time, ~$5)
+
+Your Supabase `news` table has articles with `sentiment`, `sentiment_score`, and `confidence` already scored. This is labeled training data. You could:
+
+1. Export ~10k high-confidence articles (`confidence > 0.8`)
+2. Fine-tune DeBERTa or FinBERT for 3–5 epochs on MI300X (~2 hours)
+3. Save the model to HuggingFace private repo
+4. Use it forever at zero API cost
+
+This creates **Sentimatix-FinBERT-India** — a proprietary model tuned for NSE/BSE news. This is a genuine competitive moat.
+
+### Use Case 5: Volatility + Risk Signal Generation
+
+The MI300X's 192GB VRAM can run large time-series models. You could:
+
+- Train an LSTM or Transformer on your historical `sentiment_score` time series + Yahoo Finance price data
+- Predict 24-hour price volatility signals (not price — volatility is easier and more defensible)
+- Expose as `/api/v1/volatility-forecast?stock=TCS`
+
+This upgrades your product from **"what happened"** (sentiment) to **"what might happen"** (forecast) — a completely different value tier.
+
+### Use Case 6: Multi-language News Processing
+
+Indian stock news also appears in Hindi and regional languages (Gujarati for BSE traders, Tamil for Chennai-based stocks). Models like `ai4bharat/indic-bert` or multilingual variants of Llama 3 can process this. You could:
+
+- Detect language of scraped articles
+- Translate/analyze in native language
+- Cover news that English-only scrapers miss entirely
+
+### Use Case 7: News Article Deduplication at Scale
+
+You likely have thousands of near-duplicate articles (Reuters syndicated to 10 outlets, etc.). An LLM embedding model (like `BAAI/bge-large-en`) running on GPU can:
+
+- Generate embeddings for all articles
+- Cluster by semantic similarity
+- Keep only unique news per stock per day
+
+This improves your sentiment accuracy by removing repeated signals that artificially amplify a single event.
+
+---
+
+## Priority Recommendation for You
+
+| Priority | Use Case | Effort | Cost | Business Impact |
+|----------|---------|--------|------|----------------|
+| 🥇 1 | **DeBERTa-v3 upgrade** | 1 line of code | ~$0 | +6% accuracy today |
+| 🥈 2 | **Telegram daily digest** | 2–3 days dev | ~$1/month | Growth channel, virality |
+| 🥉 3 | **Earnings call summarization** | 3–4 days dev | ~$0.01/call | Premium API tier |
+| 4 | **Fine-tune custom model** | 1 weekend | ~$5 one-time | Long-term moat |
+| 5 | **Volatility forecasting** | 1–2 weeks | ~$10/month | New product category |
+
+> [!IMPORTANT]
+> The Telegram channel idea is your **highest-leverage near-term action**. A Telegram channel with 500+ subscribers is also a distribution channel for your API — every subscriber is a potential user.
+
+> [!TIP]
+> vLLM's OpenAI-compatible server means you can switch from Llama 3.1 8B → 70B → any future model by changing one string. No code changes. Your application logic is model-agnostic.
