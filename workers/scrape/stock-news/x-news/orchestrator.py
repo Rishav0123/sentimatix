@@ -182,18 +182,18 @@ def main():
         print(f"[DEBUG] MoneyControl batches: {len(mc_batches)}")
         logger.info(f"Running MoneyControl in {len(mc_batches)} batches (5 stocks each)...")
     
-    mc_metrics = {}
-    with ProcessPoolExecutor(max_workers=8) as executor:
-        futures = [executor.submit(run_scraper_batch, 'scrape_moneycontrol.py', batch, run_id) for batch in mc_batches]
-        for future in as_completed(futures):
-            res = future.result()
-            logger.info(res['message'])
-            if res['metrics']:
-                for sym, val in res['metrics'].items():
-                    # If it's the new string format, we overwrite (since we shouldn't have duplicate symbols across batches anyway)
-                    mc_metrics[sym] = val
-                    
-    log_scraper_report('moneycontrol', run_id, mc_metrics)
+        mc_metrics = {}
+        with ProcessPoolExecutor(max_workers=8) as executor:
+            futures = [executor.submit(run_scraper_batch, 'scrape_moneycontrol.py', batch, run_id) for batch in mc_batches]
+            for future in as_completed(futures):
+                res = future.result()
+                logger.info(res['message'])
+                if res['metrics']:
+                    for sym, val in res['metrics'].items():
+                        # If it's the new string format, we overwrite (since we shouldn't have duplicate symbols across batches anyway)
+                        mc_metrics[sym] = val
+                        
+        log_scraper_report('moneycontrol', run_id, mc_metrics)
     except Exception as me:
         print(f"[DEBUG] CRITICAL ERROR in MoneyControl block: {me}")
         import traceback
