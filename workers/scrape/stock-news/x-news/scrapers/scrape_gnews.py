@@ -9,6 +9,7 @@ import os
 import json
 from bs4 import BeautifulSoup
 from pathlib import Path
+import requests
 import argparse
 
 # Add the root directory to sys.path
