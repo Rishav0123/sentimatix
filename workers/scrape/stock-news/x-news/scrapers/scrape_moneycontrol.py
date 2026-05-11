@@ -198,7 +198,13 @@ if __name__ == "__main__":
     for stock in stocks:
         id = stock['id']
         yfin_symbol = stock['yfin_symbol']
-        
+
+        # Guard against stocks with missing MC links (would crash silently before any log output)
+        if not stock.get('mc_link_1') or not stock.get('mc_link_2'):
+            logger.warning(f"⚠️ Skipping {yfin_symbol}: mc_link_1 or mc_link_2 is NULL in DB")
+            overall_report[yfin_symbol] = "generic"
+            continue
+
         # Clean both links to ensure they are URL-safe (lowercase, no spaces)
         link_a = stock['mc_link_1'].lower().replace(' ', '').replace('.', '')
         link_b = stock['mc_link_2'].lower().replace(' ', '').replace('.', '')
