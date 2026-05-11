@@ -518,10 +518,10 @@ def main():
                         logger.error(f"Error parsing RSS published_date: {e}")
                         published_date_str = "1970-01-01"
                         
-                    # Date Filtering: Discard anything older than 3 days
+                    # Date Filtering: Discard anything older than 15 days
                     try:
                         article_date = datetime.fromisoformat(published_date_str).date()
-                        if article_date < (datetime.now().date() - timedelta(days=3)):
+                        if article_date < (datetime.now().date() - timedelta(days=15)):
                             logger.info(f"⏭️ Skipping old RSS news ({published_date_str}): {title[:50]}...")
                             skipped += 1
                             continue
@@ -641,10 +641,10 @@ def main():
                             # rather than today's date which would bypass the filter
                             published_date_str = "1970-01-01"
                             
-                        # Date Filtering: Discard anything older than 3 days
+                        # Date Filtering: Discard anything older than 15 days
                         try:
                             article_date = datetime.fromisoformat(published_date_str).date()
-                            if article_date < (datetime.now().date() - timedelta(days=3)):
+                            if article_date < (datetime.now().date() - timedelta(days=15)):
                                 logger.info(f"⏭️ Skipping old news ({published_date_str}): {title[:50]}...")
                                 skipped += 1
                                 continue

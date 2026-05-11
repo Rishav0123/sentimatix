@@ -605,11 +605,11 @@ async def scrape_telegram_news(kw=None, keywords_list=None):
                     tags = matched_keywords + [channel_username, "telegram"]  # Use matched keywords as tags
                     published_date = message.date.date() if message.date else None
                     
-                    # Date Filtering: Discard anything older than 3 days
+                    # Date Filtering: Discard anything older than 15 days
                     if published_date:
                         try:
                             from datetime import timedelta
-                            if published_date < (datetime.now().date() - timedelta(days=3)):
+                            if published_date < (datetime.now().date() - timedelta(days=15)):
                                 logger.info(f"⏭️ Skipping old TG news ({published_date}): {title[:50]}...")
                                 continue
                         except Exception as de:
