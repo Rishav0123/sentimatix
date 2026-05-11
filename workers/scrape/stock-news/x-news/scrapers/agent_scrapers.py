@@ -213,13 +213,18 @@ def enhanced_keyword_matching(text, keywords):
         keywords (list): List of keywords/symbols to search for
         
     Returns:
-        tuple: (bool, list) - (is_match, list_of_matched_keywords)
+        tuple: (bool, list, int) - (is_match, list_of_matched_keywords, relevance_score)
     """
     if not text or not keywords:
-        return False, []
+        return False, [], 0
     
     text_lower = text.lower()
     matched_keywords = []
+    relevance_score = 0
+    
+    # Check if keyword is in Title (High Relevance)
+    # We look at the first line or first 200 chars for title matching
+    title_part = text.split('\n')[0].lower() if '\n' in text else text_lower[:200]
     
     # Common stopwords and noise terms to filter out for short keywords
     stopwords = {
@@ -309,8 +314,21 @@ def enhanced_keyword_matching(text, keywords):
         
         if is_match:
             matched_keywords.append(keyword)
+            # Calculate score for this keyword
+            current_score = 1 # Basic match
+            
+            # Bonus for Title match (+2)
+            if keyword_lower in title_part:
+                current_score += 2
+                
+            # Bonus for multiple mentions (Density) (+1)
+            mention_count = len(re.findall(re.escape(keyword_lower), text_lower))
+            if mention_count >= 3:
+                current_score += 1
+                
+            relevance_score = max(relevance_score, current_score)
     
-    return len(matched_keywords) > 0, matched_keywords
+    return len(matched_keywords) > 0, matched_keywords, relevance_score
 
 def extract_article_content(page, url):
     """Extract article content from a webpage"""
