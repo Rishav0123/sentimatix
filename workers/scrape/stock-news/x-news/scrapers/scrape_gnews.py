@@ -1,23 +1,21 @@
-import requests
-import os
-import re
-from bs4 import BeautifulSoup
-import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from dateutil import parser as dateutil_parser
 import feedparser
 import html
- 
 import logging
 import re
 import sys
+import os
+import json
+from bs4 import BeautifulSoup
 from pathlib import Path
+import argparse
+
 # Add the root directory to sys.path
 sys.path.append(str(Path(__file__).parent.parent))
 from utilities.load_keywords_scrape import fetch_stock_keywords
 from utilities.store_news_article import store_news_article
 from utilities.check_existing_news import check_existing_news
-from datetime import datetime
-import argparse
 
 try:
     from scrapers.agent_scrapers import enhanced_keyword_matching
@@ -499,7 +497,7 @@ def main():
                     logger.info(f"Processing RSS article: title={title}, url={article.get('url')}, source={article.get('source')}")
                     
                     try:
-                        if check_existing_news(title, article.get('published'), yfin_symbol):
+                        if check_existing_news(title, yfin_symbol, article.get('url')):
                             skipped += 1
                             continue
                     except Exception as e:
@@ -512,8 +510,7 @@ def main():
                     try:
                         if article.get('published'):
                             # Try to parse RSS date format
-                            from dateutil import parser
-                            parsed_date = parser.parse(article.get('published'))
+                            parsed_date = dateutil_parser.parse(article.get('published'))
                             published_date_str = parsed_date.date().isoformat()
                         else:
                             published_date_str = datetime.now().date().isoformat()
@@ -523,7 +520,6 @@ def main():
                         
                     # Date Filtering: Discard anything older than 3 days
                     try:
-                        from datetime import timedelta
                         article_date = datetime.fromisoformat(published_date_str).date()
                         if article_date < (datetime.now().date() - timedelta(days=3)):
                             logger.info(f"⏭️ Skipping old RSS news ({published_date_str}): {title[:50]}...")
@@ -635,7 +631,6 @@ def main():
                         try:
                             pub_at = article.get('published')
                             if pub_at:
-                                from dateutil import parser as dateutil_parser
                                 parsed_date = dateutil_parser.parse(pub_at)
                                 published_date_str = parsed_date.date().isoformat()
                             else:
@@ -648,7 +643,6 @@ def main():
                             
                         # Date Filtering: Discard anything older than 3 days
                         try:
-                            from datetime import timedelta
                             article_date = datetime.fromisoformat(published_date_str).date()
                             if article_date < (datetime.now().date() - timedelta(days=3)):
                                 logger.info(f"⏭️ Skipping old news ({published_date_str}): {title[:50]}...")
@@ -702,7 +696,12 @@ def main():
         logger.info(f"\nTOTAL: Found={total_found}, Inserted={total_inserted}, Skipped={total_skipped}")
         
         # Output metrics for the orchestrator to capture
-        metrics_summary = {stock['yfin_symbol']: insert_report.get(stock['id'], {}).get('inserted', 0) for stock in stocks}
+        metrics_summary = {}
+        for stock in stocks:
+            sym = stock['yfin_symbol']
+            report = insert_report.get(stock['id'], {'inserted': 0, 'skipped': 0})
+            metrics_summary[sym] = f"inserted:{report['inserted']} skipped:{report['skipped']}"
+        
         print(f"\nMETRICS: {json.dumps(metrics_summary)}")
 
         logger.info("\nSummary: News articles per stock:")

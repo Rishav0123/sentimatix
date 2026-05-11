@@ -164,8 +164,9 @@ def main():
                         res = future.result()
                         logger.info(res['message'])
                         if res['metrics']:
-                            for sym, count in res['metrics'].items():
-                                gnews_metrics[sym] = gnews_metrics.get(sym, 0) + count
+                            for sym, val in res['metrics'].items():
+                                # Store the metric string/value for each symbol
+                                gnews_metrics[sym] = val
                     except Exception as fe:
                         print(f"[DEBUG] Future result error in GNews: {fe}")
         
