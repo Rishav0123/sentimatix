@@ -25,7 +25,8 @@ except ImportError:
     from agent_scrapers import enhanced_keyword_matching
 
 # Fallback Google News URL (now secondary option)
-GOOGLE_NEWS_URL = f"https://news.google.com/search?q={{stock}}+finance+india&hl=en-IN&gl=IN&ceid=IN:en"
+# Fallback Google News URL (Restricted to last 3 days with tbs=qdr:d3)
+GOOGLE_NEWS_URL = f"https://news.google.com/search?q={{stock}}+finance+india&hl=en-IN&gl=IN&ceid=IN:en&tbs=qdr:d3"
 
 # Direct RSS feeds from major Indian financial news sources (PRIMARY METHOD)
 RSS_SOURCES = {
@@ -241,13 +242,19 @@ def fetch_stock_news_direct_rss(keywords, max_articles_per_source=20):
                     article['content'] = clean_html_content(article['content'])
                 
                 # Filter for stock/finance related content using robust keyword matcher
-                article_text = f"{article.get('title', '')} {article.get('summary', '')}"
-                is_relevant, matched_kws = enhanced_keyword_matching(article_text, keywords)
+                article_text = f"{article.get('title', '')}\n{article.get('summary', '')}"
+                is_relevant, matched_kws, rel_score = enhanced_keyword_matching(article_text, keywords)
                 
                 if is_relevant and article['url'] and article['title']:
                     # Add metadata for tracking
                     article['scraped_at'] = datetime.now().isoformat()
                     article['matched_keywords'] = matched_kws
+                    article['relevance_score'] = rel_score
+                    
+                    # Add relevance tag if headline matches
+                    if rel_score >= 3:
+                        article['is_high_relevance'] = True
+                        
                     all_articles.append(article)
                     
         except Exception as e:
@@ -512,13 +519,29 @@ def main():
                             published_date_str = datetime.now().date().isoformat()
                     except Exception as e:
                         logger.error(f"Error parsing RSS published_date: {e}")
-                        published_date_str = datetime.now().date().isoformat()
+                        published_date_str = "1970-01-01"
+                        
+                    # Date Filtering: Discard anything older than 3 days
+                    try:
+                        from datetime import timedelta
+                        article_date = datetime.fromisoformat(published_date_str).date()
+                        if article_date < (datetime.now().date() - timedelta(days=3)):
+                            logger.info(f"⏭️ Skipping old RSS news ({published_date_str}): {title[:50]}...")
+                            skipped += 1
+                            continue
+                    except Exception as de:
+                        logger.error(f"Error filtering RSS by date: {de}")
                     
                     # Extract source name (remove "- Markets" etc. suffixes)
                     source_name = article.get('source', 'RSS Feed')
                     if ' - ' in source_name:
                         source_name = source_name.split(' - ')[0]
                     
+                    # Add Relevance Tag for UI filtering
+                    tags = matched_keywords + ["news", "rss"]
+                    if article.get('relevance_score', 0) >= 3:
+                        tags.append("relevance:high")
+
                     rss_news_data = {
                         "stock_id": id,
                         "title": title,
@@ -527,7 +550,7 @@ def main():
                         "source": source_name,
                         "published_at": article.get('published'),
                         "scraped_at": article.get('scraped_at'),
-                        "tags": matched_keywords + ["news", "rss"],  # Use only matched keywords
+                        "tags": tags,
                         "sentiment": None,
                         "sentiment_score": None,
                         "yfin_symbol": yfin_symbol,
@@ -539,7 +562,7 @@ def main():
                     try:
                         if store_news_article(rss_news_data):
                             inserted += 1
-                            logger.info(f"✅ Successfully stored RSS article: {title[:50]}...")
+                            logger.info(f"✅ Successfully stored RSS article: {title[:50]}... (Score: {article.get('relevance_score')})")
                         else:
                             skipped += 1
                             logger.debug(f"⏭️ Skipped (duplicate): {title[:50]}...")
@@ -554,7 +577,8 @@ def main():
                 logger.error(f"Error with RSS feeds for {id}: {e}")
             
             # FALLBACK METHOD: Google News HTML scraping (if RSS didn't get enough results)
-            if len(stock_news) < 5:  # If we got less than 5 articles from RSS, supplement with Google News
+            # OPTIMIZATION: Only fallback if NO articles were found (threshold reduced from 5 to 1 to save 15+ hours)
+            if len(stock_news) < 1:  
                 logger.info(f"  -> Supplementing with Google News HTML scraping for {id}")
                 for kw in keywords:
                     # Skip very short keywords for Google News too
@@ -573,13 +597,18 @@ def main():
                     # Enhanced filtering for Google News
                     filtered_news = []
                     for article in news:
-                        article_text = f"{article.get('title', '')} {article.get('summary', '')}"
-                        is_relevant, matched_kws = enhanced_keyword_matching(article_text, [kw])
+                        article_text = f"{article.get('title', '')}\n{article.get('summary', '')}"
+                        is_relevant, matched_kws, rel_score = enhanced_keyword_matching(article_text, [kw])
                         
-                        if is_relevant:
+                        # Only store fallback results if they are High Relevance (Score >= 2)
+                        # This prevents "too many news" from generic market lists
+                        if is_relevant and rel_score >= 2:
                             article['matched_keywords'] = matched_kws
+                            article['relevance_score'] = rel_score
                             filtered_news.append(article)
-                            logger.debug(f"✅ Google News: Match found for '{kw}' with financial context")
+                            logger.info(f"✅ GNews Match: '{kw}' with Score {rel_score}")
+                        elif is_relevant:
+                            logger.debug(f"⏭️ GNews Skip: '{kw}' Relevance too low ({rel_score})")
                     
                     for article in filtered_news:
                         # Use summary as fallback for title if title is missing/empty
@@ -606,15 +635,33 @@ def main():
                         try:
                             pub_at = article.get('published')
                             if pub_at:
-                                # Handle 'Z' suffix for older Python versions
-                                if pub_at.endswith('Z'):
-                                    pub_at = pub_at.replace('Z', '+00:00')
-                                published_date_str = datetime.fromisoformat(pub_at).date().isoformat()
+                                from dateutil import parser as dateutil_parser
+                                parsed_date = dateutil_parser.parse(pub_at)
+                                published_date_str = parsed_date.date().isoformat()
                             else:
                                 published_date_str = datetime.now().date().isoformat()
                         except Exception as e:
-                            logging.error(f"Error parsing Google News published_date: {e}")
-                            published_date_str = datetime.now().date().isoformat()
+                            logger.error(f"Error parsing Google News published_date '{article.get('published')}': {e}")
+                            # If we can't parse it, better to set it to an old date to trigger the skip filter
+                            # rather than today's date which would bypass the filter
+                            published_date_str = "1970-01-01"
+                            
+                        # Date Filtering: Discard anything older than 3 days
+                        try:
+                            from datetime import timedelta
+                            article_date = datetime.fromisoformat(published_date_str).date()
+                            if article_date < (datetime.now().date() - timedelta(days=3)):
+                                logger.info(f"⏭️ Skipping old news ({published_date_str}): {title[:50]}...")
+                                skipped += 1
+                                continue
+                        except Exception as de:
+                            logger.error(f"Error filtering by date: {de}")
+
+                        # Add Relevance Tag for UI filtering
+                        tags = article.get('matched_keywords', [kw]) + ["news", "google_news"]
+                        if article.get('relevance_score', 0) >= 3:
+                            tags.append("relevance:high")
+
                         gnews_data = {
                             "stock_id": id,
                             "title": title,
@@ -623,7 +670,7 @@ def main():
                             "source": article.get('source', 'gnews'),
                             "published_at": article.get('published'),
                             "scraped_at": article.get('scraped_at'),
-                            "tags": article.get('matched_keywords', [kw]) + ["news", "google_news"],
+                            "tags": tags,
                             "sentiment": None,
                             "sentiment_score": None,
                             "yfin_symbol": yfin_symbol,

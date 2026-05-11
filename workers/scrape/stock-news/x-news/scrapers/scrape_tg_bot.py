@@ -605,6 +605,16 @@ async def scrape_telegram_news(kw=None, keywords_list=None):
                     tags = matched_keywords + [channel_username, "telegram"]  # Use matched keywords as tags
                     published_date = message.date.date() if message.date else None
                     
+                    # Date Filtering: Discard anything older than 3 days
+                    if published_date:
+                        try:
+                            from datetime import timedelta
+                            if published_date < (datetime.now().date() - timedelta(days=3)):
+                                logger.info(f"⏭️ Skipping old TG news ({published_date}): {title[:50]}...")
+                                continue
+                        except Exception as de:
+                            logger.error(f"Error filtering TG news by date: {de}")
+                    
                     # Enhanced article data with comprehensive metadata
                     article_data = {
                         'title': title,
@@ -740,7 +750,7 @@ if __name__ == "__main__":
     total_skipped = 0
     seen_urls_this_run = set()
     scraped_at = datetime.now().isoformat()
-    stock_metrics = {s.get('yfin_symbol'): 0 for s in stocks}
+    stock_metrics = {s.get('yfin_symbol'): {'inserted': 0, 'skipped': 0} for s in stocks}
 
     for article in all_found_articles:
         article_url = article.get('url')
@@ -778,6 +788,7 @@ if __name__ == "__main__":
                 dedup_key = f"{article_url}_{symbol}"
                 if dedup_key in seen_urls_this_run:
                     total_skipped += 1
+                    stock_metrics[symbol]['skipped'] += 1
                     continue
                 seen_urls_this_run.add(dedup_key)
 
@@ -787,16 +798,20 @@ if __name__ == "__main__":
                 # Store in DB
                 if store_news_article(article_to_store):
                     total_inserted += 1
-                    stock_metrics[symbol] += 1
+                    stock_metrics[symbol]['inserted'] += 1
                 else:
                     total_skipped += 1
+                    stock_metrics[symbol]['skipped'] += 1
 
     logger.info(f"\n✅ Finished processing batch.")
     logger.info(f"📊 Total Inserted: {total_inserted}")
     logger.info(f"📊 Total Skipped: {total_skipped}")
     
+    # Format metrics for orchestrator
+    formatted_metrics = {sym: f"inserted:{data['inserted']} skipped:{data['skipped']}" for sym, data in stock_metrics.items()}
+    
     # Output metrics for orchestrator
-    print(f"\nMETRICS: {json.dumps(stock_metrics)}")
+    print(f"\nMETRICS: {json.dumps(formatted_metrics)}")
     logger.info(f"\n{'='*80}")
     logger.info(f"🎯 PRODUCTION ENHANCED SCRAPING BATCH COMPLETE")
     logger.info(f"{'='*80}")

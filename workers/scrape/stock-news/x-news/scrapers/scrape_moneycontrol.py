@@ -269,6 +269,18 @@ if __name__ == "__main__":
                     logger.error(f"Error parsing timestamp for article '{news['title']}' with raw timestamp '{timestamp_str}': {e}")
                     # Fallback: use current time as published_at
                     full_datetime = datetime.now(timezone.utc).isoformat()
+                    
+                # Date Filtering: Discard anything older than 3 days
+                try:
+                    from datetime import timedelta
+                    article_date = datetime.fromisoformat(full_datetime).date()
+                    if article_date < (datetime.now(timezone.utc).date() - timedelta(days=3)):
+                        logger.info(f"⏭️ Skipping old news ({article_date}): {news['title'][:50]}...")
+                        skipped_count += 1
+                        continue
+                except Exception as de:
+                    logger.error(f"Error filtering Moneycontrol news by date: {de}")
+                    
                 try:
                     news_data = {
                         "stock_id": id,
