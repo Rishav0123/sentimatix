@@ -150,3 +150,25 @@ class V1SectorSentimentItem(BaseModel):
 class V1SectorSentimentResponse(BaseModel):
     period: str = Field(..., description="The time period analyzed (7d or 30d)")
     data: List[V1SectorSentimentItem]
+
+class V1TrendingStock(BaseModel):
+    symbol: str = Field(..., description="The stock ticker symbol")
+    news_count: int = Field(..., description="Number of news articles in the period")
+
+class V1TrendingResponse(BaseModel):
+    period_hours: int
+    data: List[V1TrendingStock]
+
+class V1AgentRun(BaseModel):
+    stock_symbol: str
+    news_count: int
+    content_full: str
+    created_at: Optional[str] = None
+
+class V1HistoryResponse(BaseModel):
+    data: List[V1AgentRun]
+
+class V1HistoryCreate(BaseModel):
+    stock_symbol: str
+    news_count: int
+    content: str

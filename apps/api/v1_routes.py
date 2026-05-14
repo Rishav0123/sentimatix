@@ -30,7 +30,8 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 from models import (
-    V1NewsResponse, V1EntityResponse, V1SentimentResponse, V1SectorSentimentResponse
+    V1NewsResponse, V1EntityResponse, V1SentimentResponse, V1SectorSentimentResponse,
+    V1TrendingResponse, V1HistoryResponse, V1HistoryCreate
 )
 
 v1_router = APIRouter(prefix="/api/v1", tags=["API v1"])
@@ -118,8 +119,8 @@ async def get_news(
         else:
             limit = min(limit, 1000 if tier == 'enterprise' else 100)
 
-        query = supabase.table('news').select('*')
-        count_query = supabase.table('news').select('id', count='estimated')
+        query = supabase.table('news').select('*').eq('is_ready', 'Y')
+        count_query = supabase.table('news').select('id', count='estimated').eq('is_ready', 'Y')
 
         if symbols:
             sym_list = [s.strip().upper() + '.NS' if not s.endswith('.NS') else s.strip().upper() for s in symbols.split(',')]
@@ -366,7 +367,7 @@ async def get_sector_sentiment(
         days = 30 if period == '30d' else 7
         start_date = (datetime.now() - timedelta(days=days)).isoformat()
         
-        query = supabase.table('news').select('yfin_symbol, sentiment, sentiment_score').gte('published_at', start_date)
+        query = supabase.table('news').select('yfin_symbol, sentiment, sentiment_score').gte('published_at', start_date).eq('is_ready', 'Y')
         response = query.execute()
         news_data = response.data if response and hasattr(response, 'data') and isinstance(response.data, list) else []
 
@@ -437,4 +438,70 @@ async def get_sector_sentiment(
     except Exception as e:
         logger.error(f"Error in /v1/sentiment/sectors: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+# ---------------------------------------------------------
+# 5. GET /api/v1/analytics/trending (Internal/Pro)
+# ---------------------------------------------------------
+@v1_router.get(
+    "/analytics/trending",
+    response_model=V1TrendingResponse,
+    summary="Get Trending Stocks by News Volume",
+)
+async def get_trending(
+    hours: int = Query(24, ge=1, le=168),
+    user: dict = Depends(get_api_user),
+    tier: str = Depends(get_user_tier)
+):
+    try:
+        since = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+        response = (
+            supabase.table("news")
+            .select("yfin_symbol")
+            .gt("published_at", since)
+            .eq("is_ready", "Y")
+            .execute()
+        )
+        
+        if not response.data:
+            return {"period_hours": hours, "data": []}
+            
+        counts = {}
+        for item in response.data:
+            sym = item.get("yfin_symbol")
+            if sym:
+                counts[sym] = counts.get(sym, 0) + 1
+                
+        sorted_stocks = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+        formatted = [{"symbol": sym, "news_count": count} for sym, count in sorted_stocks]
+        
+        return {"period_hours": hours, "data": formatted}
+    except Exception as e:
+        logger.error(f"Error in /v1/analytics/trending: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+# ---------------------------------------------------------
+# 6. /api/v1/internal/history (Agent Runs Tracking)
+# ---------------------------------------------------------
+@v1_router.get("/internal/history", response_model=V1HistoryResponse)
+async def get_history(limit: int = 25, user: dict = Depends(get_api_user)):
+    try:
+        response = supabase.table("agent_runs").select("*").order("created_at", desc=True).limit(limit).execute()
+        return {"data": response.data}
+    except Exception as e:
+        logger.error(f"Error fetching history: {e}")
+        raise HTTPException(status_code=500, detail="History fetch failed")
+
+@v1_router.post("/internal/history")
+async def create_history(run: V1HistoryCreate, user: dict = Depends(get_api_user)):
+    try:
+        supabase.table("agent_runs").insert({
+            "stock_symbol": run.stock_symbol,
+            "news_count": run.news_count,
+            "content_full": run.content,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }).execute()
+        return {"status": "success"}
+    except Exception as e:
+        logger.error(f"Error logging history: {e}")
+        raise HTTPException(status_code=500, detail="History logging failed")
 
