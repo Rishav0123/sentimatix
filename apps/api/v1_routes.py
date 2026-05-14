@@ -118,6 +118,12 @@ async def get_news(
                 published_after = seven_days_ago
         else:
             limit = min(limit, 1000 if tier == 'enterprise' else 100)
+            # Add safety: default to 30 days for Pro/Enterprise if no date filter provided
+            if not published_after and not symbols:
+                published_after = (datetime.now(timezone.utc) - timedelta(days=30)).strftime('%Y-%m-%d')
+            elif not published_after and symbols:
+                # If symbols are provided, we can look back up to 90 days
+                published_after = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%d')
 
         query = supabase.table('news').select('*').eq('is_ready', 'Y')
         count_query = supabase.table('news').select('id', count='estimated').eq('is_ready', 'Y')
