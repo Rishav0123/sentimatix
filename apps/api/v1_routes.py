@@ -448,7 +448,7 @@ async def get_sector_sentiment(
     summary="Get Trending Stocks by News Volume",
 )
 async def get_trending(
-    hours: int = Query(24, ge=1, le=168),
+    hours: int = Query(24, ge=1, le=1000),
     user: dict = Depends(get_api_user),
     tier: str = Depends(get_user_tier)
 ):

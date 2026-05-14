@@ -64,14 +64,14 @@ async def main():
         print("❌ Missing API_URL or API_KEY in .env")
         return
 
-    # 1. Get trending stocks via API
-    trending = get_trending_stocks(hours=48)
+    # 1. Get trending stocks via API (FORCED TEST MODE: 1000 hours)
+    trending = get_trending_stocks(hours=1000)
     if not trending:
-        print("❌ No trending news found in the last 48 hours via API.")
+        print("❌ No trending news found in the last 1000 hours via API.")
         return
     
-    # Filter out stocks with very low news count (less than 3) to ensure quality
-    trending = [t for t in trending if t[1] >= 3]
+    # Filter out stocks (FORCED TEST MODE: threshold = 1)
+    trending = [t for t in trending if t[1] >= 1]
         
     # 2. Get recent history via API
     recent_history = get_recent_runs()
