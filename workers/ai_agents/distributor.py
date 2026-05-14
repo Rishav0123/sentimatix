@@ -42,17 +42,28 @@ def distribute_content(result: dict):
     content = str(result.get("content", ""))
     brief = str(result.get("brief", ""))
     
-    # 1. Extract the Social Snippet using the explicit markers
-    if "[[SOCIAL_SNIPPET]]" in content:
+    # Normalize markers: support both [[MARKER]] and [MARKER]
+    content = content.replace("[[SOCIAL_SNIPPET]]", "[SOCIAL_SNIPPET]")
+    content = content.replace("[[REDDIT]]", "[REDDIT]")
+    content = content.replace("[[MEDIUM]]", "[MEDIUM]")
+
+    # 1. Extract the Social Snippet — the clean Telegram message
+    if "[SOCIAL_SNIPPET]" in content:
         try:
-            snippet = content.split("[[SOCIAL_SNIPPET]]")[1]
-            if "[[" in snippet:
-                snippet = snippet.split("[[")[0]
+            snippet = content.split("[SOCIAL_SNIPPET]")[1]
+            # Cut off at the next section marker
+            for marker in ["[REDDIT]", "[MEDIUM]"]:
+                if marker in snippet:
+                    snippet = snippet.split(marker)[0]
             snippet = snippet.strip()
         except Exception:
-            snippet = content[:4000] 
+            snippet = content[:1000]
     else:
-        snippet = content[:4000]
+        # No marker at all — try to use just the first 1000 chars (skip Reddit/Medium noise)
+        for marker in ["[REDDIT]", "[MEDIUM]"]:
+            if marker in content:
+                content = content.split(marker)[0]
+        snippet = content.strip()[:1000]
 
     # 2. AUTOMATED LINK INJECTION (The "Premium" part)
     # Extract all Markdown links from the original brief to ensure accuracy
