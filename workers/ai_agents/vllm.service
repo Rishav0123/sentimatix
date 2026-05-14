@@ -1,0 +1,15 @@
+[Unit]
+Description=vLLM Model Server for MI300X
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/ai_agents
+Environment="PATH=/root/ai_env/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=/root/ai_env/bin/python3 -m vllm.entrypoints.openai.api_server --model Qwen/Qwen2.5-7B-Instruct --device cuda --dtype float16
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

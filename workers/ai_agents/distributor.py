@@ -21,7 +21,15 @@ def send_telegram_message(message: str):
     }
     
     try:
-        response = httpx.post(url, json=payload)
+        response = httpx.post(url, json=payload, timeout=30)
+        if response.status_code == 400 and "too long" in response.text:
+            # Truncate and retry
+            payload["text"] = payload["text"][:4000] + "\n\n...[truncated]"
+            response = httpx.post(url, json=payload, timeout=30)
+        if response.status_code == 400 and "parse" in response.text.lower():
+            # Retry without Markdown if parse error
+            payload.pop("parse_mode", None)
+            response = httpx.post(url, json=payload, timeout=30)
         response.raise_for_status()
         print("✅ Telegram message sent successfully.")
     except Exception as e:
@@ -71,7 +79,8 @@ def distribute_content(result: dict):
         "⚠️ *Disclaimer: Educational purposes only. Not financial advice.*"
     )
     
-    final_message = snippet + link_section + footer
+    # Enforce Telegram's 4096 char hard limit
+    final_message = (snippet + link_section + footer)[:4096]
     send_telegram_message(final_message)
     
     # Add WhatsApp / others here...
