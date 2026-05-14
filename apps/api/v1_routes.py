@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Security, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional, List
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from mixpanel import Mixpanel
 import logging
