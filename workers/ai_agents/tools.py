@@ -20,9 +20,13 @@ class FetchSentimatixNewsTool(BaseTool):
         try:
             # If the user passes 'RELIANCE', the API handles '.NS' conversion internally
             headers = {"Authorization": f"Bearer {api_key}"}
+            # Limit fetch to the last 45 days to prevent DB timeouts on the API side
+            from datetime import datetime, timedelta, timezone
+            since_date = (datetime.now(timezone.utc) - timedelta(days=45)).strftime('%Y-%m-%d')
             params = {
                 "symbols": stock_symbol,
-                "limit": 10
+                "limit": 10,
+                "published_after": since_date
             }
             
             with httpx.Client(timeout=20.0) as client:
