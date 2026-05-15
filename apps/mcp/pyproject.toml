@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sentimatix-mcp"
-version = "1.0.1"
+version = "1.0.2"
 description = "Model Context Protocol server for Sentimatix - Indian Stock Market Sentiment Intelligence"
 readme = "README.md"
 authors = [
@@ -40,4 +40,4 @@ packages = ["server", "server.tools", "server.utils"]
 
 # REQUIRED BY ANTHROPIC OFFICIAL REGISTRY
 [tool.mcp]
-mcpName = "sentimatix"
+mcpName = "io.github.Rishav0123/sentimatix"

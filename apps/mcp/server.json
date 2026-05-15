@@ -1,0 +1,63 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Rishav0123/sentimatix",
+  "title": "Sentimatix",
+  "description": "Real-time NSE/BSE stock sentiment, news NLP, technical analysis & RAG search via MCP.",
+  "websiteUrl": "https://sentimatix-production.up.railway.app",
+  "repository": {
+    "url": "https://github.com/Rishav0123/sentimatix",
+    "source": "github",
+    "subfolder": "apps/mcp"
+  },
+  "version": "1.0.2",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "sentimatix-mcp",
+      "version": "1.0.2",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "BACKEND_API_URL",
+          "description": "Base URL for the Sentimatix REST API. Defaults to the hosted production instance.",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "https://sentimatix-production.up.railway.app/api"
+        },
+        {
+          "name": "SENTIMATIX_API_KEY",
+          "description": "Optional API key for authenticated tier access. Leave blank for free tier.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://sentimatix-mcp.up.railway.app/mcp"
+    },
+    {
+      "type": "sse",
+      "url": "https://sentimatix-mcp.up.railway.app/sse"
+    }
+  ],
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "tool": "mcp-publisher",
+      "version": "1.0.1",
+      "build_info": {
+        "timestamp": "2026-05-16T00:00:00Z",
+        "language": "python",
+        "transport_modes": ["stdio", "sse", "streamable-http"],
+        "markets_covered": ["NSE", "BSE"],
+        "tools_count": 11
+      }
+    }
+  }
+}

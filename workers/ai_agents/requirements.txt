@@ -1,0 +1,5 @@
+crewai
+httpx
+python-dotenv
+supabase
+pyautogen

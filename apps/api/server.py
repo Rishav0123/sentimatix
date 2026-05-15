@@ -679,6 +679,64 @@ async def debug_stock_price_mapping():
 
 from v1_routes import get_api_user, get_user_tier
 
+# ---------------------------------------------------------------------------
+# Internal service key auth — used by MCP server & legacy endpoints
+# ---------------------------------------------------------------------------
+INTERNAL_SERVICE_KEY = os.getenv("INTERNAL_SERVICE_KEY", "")
+
+def get_legacy_api_user(
+    request: Request,
+    x_api_key: Optional[str] = None,
+    credentials: Optional[str] = None,
+) -> dict:
+    """
+    Lightweight auth for legacy /api/news and /api/stocks/prices endpoints.
+    Priority: X-API-Key header > Authorization Bearer > cookie > reject.
+    Returns a dict with 'tier': 'internal' | 'free' | raises 401.
+    """
+    from fastapi.security.utils import get_authorization_scheme_param
+
+    # 1. X-API-Key header (used by MCP tools)
+    x_key = request.headers.get("X-API-Key") or request.headers.get("x-api-key")
+    if x_key:
+        if INTERNAL_SERVICE_KEY and x_key == INTERNAL_SERVICE_KEY:
+            return {"tier": "internal", "source": "service_key"}
+        # Check user table for registered API keys
+        from v1_routes import supabase as v1_supabase
+        try:
+            row = v1_supabase.table('users').select('id,tier').eq('authentication_key', x_key).single().execute()
+            if row.data:
+                return {"tier": row.data.get('tier') or 'free', "source": "api_key"}
+        except Exception:
+            pass
+        raise HTTPException(status_code=401, detail="Invalid API key.")
+
+    # 2. Authorization: Bearer <token>
+    auth_header = request.headers.get("Authorization", "")
+    scheme, token = get_authorization_scheme_param(auth_header)
+    if scheme.lower() == "bearer" and token:
+        if INTERNAL_SERVICE_KEY and token == INTERNAL_SERVICE_KEY:
+            return {"tier": "internal", "source": "service_key"}
+        from v1_routes import supabase as v1_supabase
+        try:
+            row = v1_supabase.table('users').select('id,tier').eq('authentication_key', token).single().execute()
+            if row.data:
+                return {"tier": row.data.get('tier') or 'free', "source": "bearer"}
+        except Exception:
+            pass
+        raise HTTPException(status_code=401, detail="Invalid bearer token.")
+
+    # 3. Session cookie (existing frontend users — treat as free tier)
+    auth_cookie = request.cookies.get("auth_key")
+    if auth_cookie:
+        return {"tier": "free", "source": "cookie"}
+
+    # 4. No credentials — reject
+    raise HTTPException(
+        status_code=401,
+        detail="Authentication required. Pass X-API-Key header or Authorization: Bearer <token>."
+    )
+
 # Define API routes
 @api_router.get("/standouts")
 async def get_standout_stocks(
@@ -1816,8 +1874,14 @@ async def get_stock_info_only(stock_id: str):
 @api_router.get("/stocks/prices/{symbol}", response_model=List[StockPrice])  # Additional route for frontend compatibility
 async def get_stock_prices_history(
     symbol: str,
-    days: int = Query(30, description="Number of days of historical data")
+    days: int = Query(30, description="Number of days of historical data"),
+    request: Request = None,
+    api_user: dict = Depends(get_legacy_api_user)
 ):
+    # Tier enforcement: free → cap at 7 days
+    tier = api_user.get("tier", "free")
+    if tier == "free":
+        days = min(days, 7)
     try:
         logger.info(f"Fetching price data for {symbol} for last {days} days")
         end_date = datetime.now()
@@ -1859,13 +1923,25 @@ from models import NewsListResponse
 
 @api_router.get("/news", response_model=NewsListResponse)
 async def get_news(
+    request: Request,
     stock_symbol: Optional[str] = Query(None, description="Filter by stock symbol"),
     sentiment: Optional[str] = Query(None, pattern="^(positive|negative|neutral)$"),
     page: int = Query(1, ge=1, description="Page number (starts from 1)"),
     limit: int = Query(10, ge=1, le=5000, description="Number of items per page (max 5000)"),
     start_date: Optional[str] = Query(None, description="Filter: published_at >= YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="Filter: published_at <= YYYY-MM-DD")
+    end_date: Optional[str] = Query(None, description="Filter: published_at <= YYYY-MM-DD"),
+    api_user: dict = Depends(get_legacy_api_user)
 ):
+    # Tier enforcement for /api/news (legacy endpoint)
+    tier = api_user.get("tier", "free")
+    if tier == "free":
+        limit = min(limit, 10)
+        from datetime import datetime, timedelta
+        seven_days_ago = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+        if not start_date or start_date < seven_days_ago:
+            start_date = seven_days_ago
+    elif tier not in ("pro", "enterprise", "internal"):
+        limit = min(limit, 100)
     try:
         logger.info(f"Fetching news for symbol: {stock_symbol}, sentiment: {sentiment}, page: {page}, limit: {limit}")
         query = supabase.table('news').select('*')

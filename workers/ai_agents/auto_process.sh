@@ -13,6 +13,11 @@ source /root/ai_env/bin/activate
 echo "📦 Pulling latest code from GitHub..."
 git pull origin main 2>/dev/null || echo "⚠️ Git pull failed, using existing code."
 
+# 2b. Ensure dependencies are installed
+echo "🛠️ Installing/Updating dependencies..."
+pip install --upgrade pip
+pip install -r requirements.txt
+
 # 3. Wait for vLLM to be ready
 echo "⏳ Waiting for vLLM (the brain) to wake up..."
 MAX_RETRIES=30
