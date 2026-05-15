@@ -38,23 +38,23 @@ User Query → Claude/AI Agent → MCP Server → Tools
 
 ## 🚀 Quick Start (Claude Desktop)
 
-Add this to your `claude_desktop_config.json`:
+1. Get a free API key at: https://sentimatix-production.up.railway.app/portal
+2. Add this to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "sentimatix": {
-      "command": "python",
-      "args": ["path/to/apps/mcp/mcp_stdio.py"],
+      "command": "uvx",
+      "args": ["sentimatix-mcp"],
       "env": {
-        "BACKEND_API_URL": "https://sentimatix-production.up.railway.app/api"
+        "BACKEND_API_URL": "https://sentimatix-production.up.railway.app/api",
+        "SENTIMATIX_API_KEY": "your_key_here"
       }
     }
   }
 }
 ```
-
-No API key is required for the default free tier.
 
 ## 📊 Example Query Flow
 

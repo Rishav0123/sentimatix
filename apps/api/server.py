@@ -323,6 +323,130 @@ async def root(request: Request):
 </html>"""
     return HTMLResponse(content=html)
 
+class GetKeyRequest(BaseModel):
+    email: str
+
+@app.post("/api/get-key", tags=["Auth"])
+async def get_api_key(req: GetKeyRequest):
+    """Generate a free API key instantly for a given email."""
+    try:
+        admin = supabase.auth.admin
+        users_page = admin.list_users()
+        user_list = users_page.users if hasattr(users_page, 'users') else (users_page.get('users', []) if isinstance(users_page, dict) else [])
+        for u in user_list:
+            if u.get('email') == req.email or getattr(u, 'email', None) == req.email:
+                return JSONResponse(status_code=400, content={"error": "Email already registered. Please login to your dashboard to get your key."})
+
+        # Generate a random password since we just need to create an account
+        import string
+        import random
+        alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
+        password = ''.join(random.choice(alphabet) for i in range(16))
+        
+        result = supabase.auth.sign_up({"email": req.email, "password": password})
+        
+        if result and isinstance(result, dict) and result.get("error"):
+            error_message = result["error"].get("message", "Failed to generate key")
+            return JSONResponse(status_code=400, content={"error": error_message})
+            
+        user = result.get("user") if isinstance(result, dict) else getattr(result, 'user', None)
+        
+        # Wait a moment for triggers to run and insert into public.users
+        import asyncio
+        await asyncio.sleep(1)
+        
+        if user:
+            email = user.get("email") if isinstance(user, dict) else getattr(user, 'email', None)
+            if email:
+                user_row = supabase.table('users').select('authentication_key').eq('email', email).single().execute()
+                if user_row and hasattr(user_row, 'data') and user_row.data and 'authentication_key' in user_row.data:
+                    return {"api_key": user_row.data['authentication_key']}
+                elif user_row and isinstance(user_row, dict) and 'data' in user_row and user_row['data'] and 'authentication_key' in user_row['data']:
+                    return {"api_key": user_row['data']['authentication_key']}
+        
+        return JSONResponse(status_code=500, content={"error": "Key generated but could not be retrieved. Please contact support."})
+    except Exception as e:
+        logger.error(f"Error generating key: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
+
+@app.get("/portal", response_class=HTMLResponse)
+async def portal_page():
+    """Self-service API key portal."""
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Sentimatix API Key</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 500px; margin: 80px auto; padding: 20px; color: #1a1a2e; background: #f8fafc; }
+    .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    h1 { font-size: 1.5rem; margin-top: 0; }
+    input { width: 100%; padding: 12px; margin: 10px 0 20px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+    button { width: 100%; background: #2563eb; color: white; padding: 12px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    .result { margin-top: 20px; padding: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; display: none; word-break: break-all; }
+    .error { margin-top: 20px; color: #ef4444; font-size: 0.9rem; display: none; }
+    .code { font-family: monospace; font-size: 1.1rem; color: #166534; margin-top: 10px; display: block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Get your free API Key</h1>
+    <p>Enter your email to get instant access to the Sentimatix MCP Server (10 requests/week).</p>
+    <form id="keyForm">
+      <input type="email" id="email" placeholder="you@example.com" required>
+      <button type="submit" id="submitBtn">Generate Key</button>
+    </form>
+    <div id="error" class="error"></div>
+    <div id="result" class="result">
+      <strong>Your API Key:</strong>
+      <span id="apiKey" class="code"></span>
+      <p style="font-size: 0.85rem; color: #475569; margin-top: 15px;">Add this to your Claude Desktop config under <code>SENTIMATIX_API_KEY</code>. Keep it secret!</p>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('keyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const errorDiv = document.getElementById('error');
+      const resultDiv = document.getElementById('result');
+      
+      btn.disabled = true;
+      btn.textContent = 'Generating...';
+      errorDiv.style.display = 'none';
+      resultDiv.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/get-key', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: document.getElementById('email').value })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to generate key');
+        }
+        
+        document.getElementById('apiKey').textContent = data.api_key;
+        resultDiv.style.display = 'block';
+        document.getElementById('keyForm').style.display = 'none';
+      } catch (err) {
+        errorDiv.textContent = err.message;
+        errorDiv.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Generate Key';
+      }
+    });
+  </script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
 # --- MCP Endpoints (For Smithery & Agents) ---
 @app.get("/.well-known/mcp/server-card.json")
 async def mcp_server_card():
@@ -709,7 +833,7 @@ def get_legacy_api_user(
                 return {"tier": row.data.get('tier') or 'free', "source": "api_key"}
         except Exception:
             pass
-        raise HTTPException(status_code=401, detail="Invalid API key.")
+        raise HTTPException(status_code=401, detail="API key required. Get your free key at sentimatix-production.up.railway.app/portal")
 
     # 2. Authorization: Bearer <token>
     auth_header = request.headers.get("Authorization", "")
@@ -724,7 +848,7 @@ def get_legacy_api_user(
                 return {"tier": row.data.get('tier') or 'free', "source": "bearer"}
         except Exception:
             pass
-        raise HTTPException(status_code=401, detail="Invalid bearer token.")
+        raise HTTPException(status_code=401, detail="API key required. Get your free key at sentimatix-production.up.railway.app/portal")
 
     # 3. Session cookie (existing frontend users — treat as free tier)
     auth_cookie = request.cookies.get("auth_key")
@@ -734,7 +858,7 @@ def get_legacy_api_user(
     # 4. No credentials — reject
     raise HTTPException(
         status_code=401,
-        detail="Authentication required. Pass X-API-Key header or Authorization: Bearer <token>."
+        detail="API key required. Get your free key at sentimatix-production.up.railway.app/portal"
     )
 
 # Define API routes
