@@ -64,19 +64,19 @@ def get_api_user(
     if not credentials:
         raise HTTPException(
             status_code=401,
-            detail="API key required. Get your free key at sentimatix-production.up.railway.app/portal"
+            detail="API key required. Get your free key at https://sentimatix.onrender.com/docs"
         )
     token = credentials.credentials
     try:
         response = supabase.table('users').select('*').eq('authentication_key', token).execute()
         if not response.data:
-            raise HTTPException(status_code=401, detail="API key required. Get your free key at sentimatix-production.up.railway.app/portal")
+            raise HTTPException(status_code=401, detail="API key required. Get your free key at https://sentimatix.onrender.com/docs")
         return response.data[0]
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Auth error: {str(e)}")
-        raise HTTPException(status_code=401, detail="API key required. Get your free key at sentimatix-production.up.railway.app/portal")
+        raise HTTPException(status_code=401, detail="API key required. Get your free key at https://sentimatix.onrender.com/docs")
 
 def get_user_tier(user: dict = Depends(get_api_user)):
     # Defaults to 'free' if 'tier' column is missing or null
