@@ -38,7 +38,7 @@ User Query → Claude/AI Agent → MCP Server → Tools
 
 ## 🚀 Quick Start (Claude Desktop)
 
-1. Get a free API key at: https://sentimatix.onrender.com/docs
+1. Get a free API key at: https://sentimatix-production.up.railway.app/portal
 2. Add this to your `claude_desktop_config.json`:
 
 ```json
