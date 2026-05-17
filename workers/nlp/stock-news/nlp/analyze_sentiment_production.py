@@ -354,19 +354,54 @@ class ProductionSentimentAnalyzer:
         return result
 
     async def get_unanalyzed_news_batch(self, limit=100):
-        """Get a batch of news articles that need sentiment analysis with optimized columns"""
+        """Get a batch of news articles that need sentiment analysis using self-expanding time windows to leverage published_at index"""
+        from datetime import datetime, timedelta, timezone
+        
+        # We query using progressively larger windows to leverage the index on published_at
+        # 1. 3 days: captures normal daily runs and weekend lag (extremely fast)
+        # 2. 14 days: captures recent backlogs (very fast)
+        # 3. 60 days: captures older backlog (fast)
+        windows = [3, 14, 60]
+        
+        for days in windows:
+            try:
+                since_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+                logger.info(f"Scanning for unanalyzed news since {since_date} ({days} days)...")
+                
+                response = await asyncio.to_thread(
+                    lambda: self.supabase.table("news")
+                    .select("id, title, content, stock_id, stock_name, published_at")
+                    .is_("sentiment", "null")
+                    .is_("sentiment_score", "null")
+                    .gte("published_at", since_date)
+                    .limit(limit)
+                    .execute()
+                )
+                
+                data = response.data or []
+                if data:
+                    logger.info(f"Found {len(data)} unanalyzed articles in the {days}-day window.")
+                    return data
+                    
+            except Exception as e:
+                logger.warning(f"Query for {days}-day window failed or timed out: {str(e)}")
+                continue
+                
+        # Fallback: If no recent articles are found, try one last time with no time filter
+        # But we limit it to a very small size (limit=10) to minimize sequential scan effort
         try:
+            logger.info("No recent unanalyzed articles found. Trying fallback full table scan with small limit...")
             response = await asyncio.to_thread(
                 lambda: self.supabase.table("news")
-                .select("id, title, content, stock_id, stock_name")
+                .select("id, title, content, stock_id, stock_name, published_at")
                 .is_("sentiment", "null")
                 .is_("sentiment_score", "null")
-                .limit(limit)
+                .limit(min(limit, 10))
                 .execute()
             )
             return response.data or []
         except Exception as e:
-            logger.error(f"Error fetching unanalyzed news batch: {str(e)}")
+            logger.error(f"Fallback full table scan failed: {str(e)}")
             return []
 
     async def update_news_sentiment(self, news_id, enrichment):
