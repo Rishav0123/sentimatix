@@ -563,8 +563,8 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 try:
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    # Test connection
-    test_query = supabase.table('stock_prices').select('count').execute()
+    # Test connection with a lightweight query to avoid timeouts
+    test_query = supabase.table('stocks').select('yfin_symbol').limit(1).execute()
     logger.info(f"Successfully connected to Supabase. Data available: {test_query.data}")
 except Exception as e:
     logger.error(f"Failed to initialize Supabase client: {str(e)}\nTraceback: {traceback.format_exc()}")

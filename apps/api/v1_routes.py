@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Security, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional, List
 import os
+import asyncio
 from datetime import datetime, timedelta, timezone
 from supabase import create_client, Client
 from mixpanel import Mixpanel
@@ -15,14 +16,27 @@ logger = logging.getLogger(__name__)
 MIXPANEL_TOKEN = os.getenv("MIXPANEL_TOKEN")
 mp = Mixpanel(MIXPANEL_TOKEN) if MIXPANEL_TOKEN else None
 
+def _send_to_mixpanel(user_id: str, event_name: str, properties: dict):
+    """Internal helper to execute blocking Mixpanel call in a background thread."""
+    try:
+        mp.track(user_id, event_name, properties)
+    except Exception as e:
+        logger.error(f"Mixpanel tracking error: {e}")
+
 def track_api_call(user_id: str, endpoint: str, tier: str, properties: dict = None):
     if mp:
         props = properties or {}
         props.update({"endpoint": endpoint, "tier": tier})
         try:
-            mp.track(user_id, 'api_request_made', props)
+            # Check if there is an active running event loop
+            loop = asyncio.get_running_loop()
+            # Schedule execution of the blocking call in the default executor (non-blocking thread pool)
+            loop.run_in_executor(None, _send_to_mixpanel, user_id, 'api_request_made', props)
+        except RuntimeError:
+            # Fallback to synchronous execution in non-async contexts (e.g., tests, standalone scripts)
+            _send_to_mixpanel(user_id, 'api_request_made', props)
         except Exception as e:
-            logger.error(f"Mixpanel tracking error: {e}")
+            logger.error(f"Failed to schedule Mixpanel tracking: {e}")
 
 # Initialize Supabase client
 SUPABASE_URL = os.getenv("SUPABASE_URL")
