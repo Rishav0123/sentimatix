@@ -151,7 +151,7 @@ def main():
     # 2. Parallelize Google News
     print(f"\n[DEBUG] Entering Google News block. all_stocks length: {len(all_stocks)}")
     try:
-        gnews_batches = list(chunk_list(all_stocks, 50))
+        gnews_batches = list(chunk_list(all_stocks, 5))
         print(f"[DEBUG] Google News batches: {len(gnews_batches)}")
         logger.info(f"Running Google News in {len(gnews_batches)} batches...")
         
