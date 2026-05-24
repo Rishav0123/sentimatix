@@ -567,8 +567,7 @@ try:
     test_query = supabase.table('stocks').select('yfin_symbol').limit(1).execute()
     logger.info(f"Successfully connected to Supabase. Data available: {test_query.data}")
 except Exception as e:
-    logger.error(f"Failed to initialize Supabase client: {str(e)}\nTraceback: {traceback.format_exc()}")
-    raise
+    logger.warning(f"Warning: Failed to connect to Supabase on startup check (transient/throttling issue): {str(e)}\nThe server will boot up and continue attempting connections on subsequent requests.")
 
 
 
