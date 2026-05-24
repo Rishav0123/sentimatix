@@ -459,6 +459,10 @@ def main():
         logger.info("Initializing pre-fetch of all direct RSS feeds...")
         prefetched_rss_articles = pre_fetch_all_rss_articles(max_articles_per_source=50)
 
+        # 1. Collect all matched/candidate articles across all stocks in memory
+        all_candidates = [] # List of dicts representing news data to insert
+        stock_reports = {} # Maps stock_id to {'found': 0, 'inserted': 0, 'skipped': 0, 'stock_news_len': 0}
+        
         for stock in stocks:
             id = stock['id']
             yfin_symbol = stock.get('yfin_symbol')
@@ -477,20 +481,19 @@ def main():
             if not keywords:
                 logger.info(f"No keywords found for {id}, skipping.")
                 continue
-            stock_news = []
-            inserted = 0
-            skipped = 0
-            found = 0
-            logger.info(f"Fetching news for {id} using keywords: {keywords}")
             
-            # PRIMARY METHOD: Direct RSS feeds (filtered in-memory)
+            stock_news = []
+            found = 0
+            logger.info(f"Fetching news candidates for {id} using keywords: {keywords}")
+            
+            # Direct RSS feeds (filtered in-memory)
             try:
                 logger.info(f"  -> Filtering pre-fetched RSS feeds in-memory for {id}")
                 rss_news = filter_rss_articles_in_memory(prefetched_rss_articles, keywords)
                 logger.info(f"  -> {len(rss_news)} relevant articles found from RSS feeds in-memory")
                 found += len(rss_news)
                 
-                # Process RSS articles
+                # Process RSS candidates
                 for article in rss_news:
                     matched_keywords = article.get('matched_keywords', [])
                     if not matched_keywords:
@@ -504,22 +507,9 @@ def main():
                         else:
                             continue
                     
-                    logger.info(f"Processing RSS article: title={title}, url={article.get('url')}, source={article.get('source')}")
-                    
-                    try:
-                        if check_existing_news(title, yfin_symbol, article.get('url')):
-                            skipped += 1
-                            continue
-                    except Exception as e:
-                        logger.error(f"Network/API error checking for existing RSS news: {e}")
-                        skipped += 1
-                        continue
-                    
-                    # Parse published_date
                     published_date_str = None
                     try:
                         if article.get('published'):
-                            # Try to parse RSS date format
                             parsed_date = dateutil_parser.parse(article.get('published'))
                             published_date_str = parsed_date.date().isoformat()
                         else:
@@ -532,18 +522,14 @@ def main():
                     try:
                         article_date = datetime.fromisoformat(published_date_str).date()
                         if article_date < (datetime.now().date() - timedelta(days=15)):
-                            logger.info(f"⏭️ Skipping old RSS news ({published_date_str}): {title[:50]}...")
-                            skipped += 1
                             continue
                     except Exception as de:
                         logger.error(f"Error filtering RSS by date: {de}")
                     
-                    # Extract source name (remove "- Markets" etc. suffixes)
                     source_name = article.get('source', 'RSS Feed')
                     if ' - ' in source_name:
                         source_name = source_name.split(' - ')[0]
                     
-                    # Add Relevance Tag for UI filtering
                     tags = matched_keywords + ["news", "rss"]
                     if article.get('relevance_score', 0) >= 3:
                         tags.append("relevance:high")
@@ -552,7 +538,7 @@ def main():
                         "stock_id": id,
                         "title": title,
                         "content": clean_html_content(article.get('content') or article.get('summary') or ''),
-                        "url": article.get('url', ''),  # ACTUAL ARTICLE URL!
+                        "url": article.get('url', ''),
                         "source": source_name,
                         "published_at": article.get('published'),
                         "scraped_at": article.get('scraped_at'),
@@ -563,35 +549,19 @@ def main():
                         "stock_name": stock.get('stock_name', ''),
                         "published_date": published_date_str
                     }
+                    all_candidates.append(rss_news_data)
                     
-                    logger.debug(f"Inserting RSS news_data: {rss_news_data}")
-                    try:
-                        if store_news_article(rss_news_data):
-                            inserted += 1
-                            logger.info(f"✅ Successfully stored RSS article: {title[:50]}... (Score: {article.get('relevance_score')})")
-                        else:
-                            skipped += 1
-                            logger.debug(f"⏭️ Skipped (duplicate): {title[:50]}...")
-                    except Exception as e:
-                        logger.error(f"❌ Error storing RSS news article: {e}")
-                        logger.error(f"Failed article data: {rss_news_data}")
-                        skipped += 1
-                        
                 stock_news.extend(rss_news)
                 
             except Exception as e:
                 logger.error(f"Error with RSS feeds for {id}: {e}")
             
-            # FALLBACK METHOD: Google News HTML scraping (if RSS didn't get enough results)
-            # OPTIMIZATION: Only fallback if NO articles were found (threshold reduced from 5 to 1 to save 15+ hours)
+            # Google News HTML scraping fallback
             if len(stock_news) < 1:  
                 logger.info(f"  -> Supplementing with Google News HTML scraping for {id}")
                 for kw in keywords:
-                    # Skip very short keywords for Google News too
                     if len(kw.strip()) <= 2:
-                        logger.debug(f"Skipping very short keyword '{kw}' for Google News (length <= 2)")
                         continue
-                        
                     try:
                         news = fetch_stock_news(kw)
                     except Exception as e:
@@ -600,24 +570,16 @@ def main():
                     logger.info(f"  -> {len(news)} articles found for keyword '{kw}' from Google News")
                     found += len(news)
                     
-                    # Enhanced filtering for Google News
                     filtered_news = []
                     for article in news:
                         article_text = f"{article.get('title', '')}\n{article.get('summary', '')}"
                         is_relevant, matched_kws, rel_score = enhanced_keyword_matching(article_text, [kw])
-                        
-                        # Only store fallback results if they are High Relevance (Score >= 2)
-                        # This prevents "too many news" from generic market lists
                         if is_relevant and rel_score >= 2:
                             article['matched_keywords'] = matched_kws
                             article['relevance_score'] = rel_score
                             filtered_news.append(article)
-                            logger.info(f"✅ GNews Match: '{kw}' with Score {rel_score}")
-                        elif is_relevant:
-                            logger.debug(f"⏭️ GNews Skip: '{kw}' Relevance too low ({rel_score})")
                     
                     for article in filtered_news:
-                        # Use summary as fallback for title if title is missing/empty
                         title = article.get('title')
                         if not title or not str(title).strip():
                             summary = article.get('summary')
@@ -626,17 +588,6 @@ def main():
                             else:
                                 title = None
                         
-                        logger.info(f"Processing Google News article: title={title}, url={article.get('url')}")
-                        try:
-                            # Correct argument order: title, yfin_symbol, url
-                            if check_existing_news(title, yfin_symbol, article.get('url')):
-                                skipped += 1
-                                continue
-                        except Exception as e:
-                            logger.error(f"Network/API error checking for existing Google News: {e}")
-                            skipped += 1
-                            continue
-                        # Parse published_date as ISO string, fallback to today if parsing fails
                         published_date_str = None
                         try:
                             pub_at = article.get('published')
@@ -647,30 +598,25 @@ def main():
                                 published_date_str = datetime.now().date().isoformat()
                         except Exception as e:
                             logger.error(f"Error parsing Google News published_date '{article.get('published')}': {e}")
-                            # If we can't parse it, better to set it to an old date to trigger the skip filter
-                            # rather than today's date which would bypass the filter
                             published_date_str = "1970-01-01"
                             
-                        # Date Filtering: Discard anything older than 15 days
+                        # Date Filtering
                         try:
                             article_date = datetime.fromisoformat(published_date_str).date()
                             if article_date < (datetime.now().date() - timedelta(days=15)):
-                                logger.info(f"⏭️ Skipping old news ({published_date_str}): {title[:50]}...")
-                                skipped += 1
                                 continue
                         except Exception as de:
                             logger.error(f"Error filtering by date: {de}")
-
-                        # Add Relevance Tag for UI filtering
+ 
                         tags = article.get('matched_keywords', [kw]) + ["news", "google_news"]
                         if article.get('relevance_score', 0) >= 3:
                             tags.append("relevance:high")
-
+ 
                         gnews_data = {
                             "stock_id": id,
                             "title": title,
                             "content": clean_html_content(article.get('content') or article.get('summary') or ''),
-                            "url": article.get('url', ''),  # NOTE: These are Google News redirect URLs
+                            "url": article.get('url', ''),
                             "source": article.get('source', 'gnews'),
                             "published_at": article.get('published'),
                             "scraped_at": article.get('scraped_at'),
@@ -681,28 +627,95 @@ def main():
                             "stock_name": stock.get('stock_name', ''),
                             "published_date": published_date_str
                         }
-                        # Skip and log if title is still missing/empty after fallback
                         if not gnews_data['title'] or not str(gnews_data['title']).strip():
-                            logger.error(f"Skipping Google News article with missing/empty title. Data: {gnews_data}")
-                            skipped += 1
                             continue
-                        logger.debug(f"Inserting Google News data: {gnews_data}")
-                        try:
-                            if store_news_article(gnews_data):
-                                inserted += 1
-                            else:
-                                skipped += 1
-                        except Exception as e:
-                            logger.error(f"Network/API error inserting Google News: {e}. Data: {gnews_data}")
-                            skipped += 1
+                        all_candidates.append(gnews_data)
                     stock_news.extend(filtered_news)
-            logger.info(f"Summary for stock {yfin_symbol}: Found={found}, Inserted={inserted}, Skipped={skipped}")
-            total_found += found
-            total_inserted += inserted
-            total_skipped += skipped
-            news_count_per_stock[id] = len(stock_news)
-            all_news.extend(stock_news)
-            insert_report[id] = {"inserted": inserted, "skipped": skipped}
+            
+            stock_reports[id] = {"found": found, "inserted": 0, "skipped": 0, "stock_news_len": len(stock_news)}
+
+        # 2. Batch check existing news in database
+        logger.info(f"Batch checking duplicates for {len(all_candidates)} candidates in Supabase...")
+        existing_urls = set()
+        existing_titles = set()
+        
+        candidate_urls = [art['url'].strip() for art in all_candidates if art.get('url')]
+        candidate_titles = [art['title'].strip() for art in all_candidates if art.get('title')]
+        candidate_symbols = list(set(art['yfin_symbol'] for art in all_candidates))
+        
+        if candidate_urls or candidate_titles:
+            try:
+                from utilities.load_keywords_scrape import get_supabase_client
+                supabase = get_supabase_client()
+                
+                # Query by URLs
+                if candidate_urls:
+                    res_url = supabase.table('news').select('url, yfin_symbol').in_('url', candidate_urls).in_('yfin_symbol', candidate_symbols).execute()
+                    if res_url.data:
+                        for row in res_url.data:
+                            if row.get('url'):
+                                existing_urls.add((row['url'].strip(), row['yfin_symbol']))
+                                
+                # Query by Titles
+                if candidate_titles:
+                    res_title = supabase.table('news').select('title, yfin_symbol').in_('title', candidate_titles).in_('yfin_symbol', candidate_symbols).execute()
+                    if res_title.data:
+                        for row in res_title.data:
+                            if row.get('title'):
+                                existing_titles.add((row['title'].strip(), row['yfin_symbol']))
+            except Exception as e:
+                logger.error(f"Error batch fetching existing news: {e}")
+                
+        # 3. Deduplicate in-memory
+        to_insert = []
+        for art in all_candidates:
+            url = art.get('url', '').strip()
+            title = art.get('title', '').strip()
+            sym = art['yfin_symbol']
+            stock_id = art['stock_id']
+            
+            is_dup = False
+            if url and (url, sym) in existing_urls:
+                is_dup = True
+            elif title and (title, sym) in existing_titles:
+                is_dup = True
+                
+            if is_dup:
+                stock_reports[stock_id]['skipped'] += 1
+                total_skipped += 1
+            else:
+                to_insert.append(art)
+                stock_reports[stock_id]['inserted'] += 1
+                total_inserted += 1
+                
+        # 4. Perform a single batch insert!
+        if to_insert:
+            logger.info(f"Batch inserting {len(to_insert)} new articles to Supabase...")
+            try:
+                supabase = get_supabase_client()
+                supabase.table('news').insert(to_insert).execute()
+                logger.info(f"✅ Successfully batch inserted {len(to_insert)} articles.")
+            except Exception as e:
+                logger.error(f"❌ Error during batch insert: {e}")
+                logger.info("Falling back to one-by-one insert...")
+                for art in to_insert:
+                    try:
+                        supabase.table('news').insert(art).execute()
+                    except Exception as fe:
+                        logger.error(f"Failed to insert single article: {fe}")
+        else:
+            logger.info("No new articles to insert.")
+            
+        total_found = sum(r['found'] for r in stock_reports.values())
+        
+        # 5. Output report summary compatible with orchestrator
+        for stock in stocks:
+            id = stock['id']
+            sym = stock['yfin_symbol']
+            report = stock_reports.get(id, {'inserted': 0, 'skipped': 0, 'stock_news_len': 0})
+            insert_report[id] = {"inserted": report['inserted'], "skipped": report['skipped']}
+            news_count_per_stock[id] = report['stock_news_len']
+            
         logger.info(f"\nTOTAL: Found={total_found}, Inserted={total_inserted}, Skipped={total_skipped}")
         
         # Output metrics for the orchestrator to capture
@@ -718,15 +731,7 @@ def main():
         for stock_id, count in news_count_per_stock.items():
             logger.info(f"{stock_id}: {count}")
         logger.info("\nInsert/Skip Report per stock:")
-        # for stock_id, report in insert_report.items():
-        #     logger.info(f"{stock_id}: Inserted={report['inserted']}, Skipped={report['skipped']}")
-        # if all_news:
-        #     save_news(all_news)
-        #     logger.info(f"\nSaved {len(all_news)} articles to article.json")
-        # else:
-        #     logger.info("No news articles found.")
     except Exception as e:
-        # Log to error file and print to console if logging fails early
         with open(error_log_file, "a", encoding="utf-8") as ef:
             ef.write(f"[FATAL ERROR] {datetime.now().isoformat()} - {str(e)}\n")
         print(f"[FATAL ERROR] {str(e)}")
