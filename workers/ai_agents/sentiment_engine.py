@@ -8,7 +8,6 @@ from supabase import create_client, Client
 import logging
 
 # Setup Logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -124,6 +123,7 @@ Return JSON: {{"sentiment": "positive"|"negative"|"neutral"|"conflicted", "score
                 print(f"✅ Analyzed: {item['title'][:50]}... -> {analysis['sentiment']}")
 
 async def main():
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     import sys
     engine = AMDSentimentEngine()
     

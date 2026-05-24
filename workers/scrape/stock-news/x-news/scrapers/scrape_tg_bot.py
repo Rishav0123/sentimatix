@@ -681,6 +681,7 @@ if __name__ == "__main__":
         ]
     )
     logger = logging.getLogger(__name__)
+    logger.propagate = False
     
     import argparse
     parser = argparse.ArgumentParser(description="Scrape Telegram News")

@@ -411,6 +411,7 @@ def main():
     error_log_file = log_dir / f"gnews_error_{datetime.now().strftime('%Y%m%d')}{batch_suffix}{pid_suffix}.log"
     
     logger = logging.getLogger(__name__)
+    logger.propagate = False
     logger.setLevel(logging.INFO)
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     # File handler for info logs

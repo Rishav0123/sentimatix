@@ -16,7 +16,7 @@ from utilities.store_news_article import store_news_article
 from utilities.load_keywords_scrape import get_all_keywords, fetch_stock_keywords
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def clean_html_content(text):
     """

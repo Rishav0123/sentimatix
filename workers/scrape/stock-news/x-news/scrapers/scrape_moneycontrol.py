@@ -179,6 +179,7 @@ if __name__ == "__main__":
         ]
     )
     logger = logging.getLogger(__name__)
+    logger.propagate = False
 
     if args.stocks_json:
         if os.path.exists(args.stocks_json):
