@@ -184,10 +184,10 @@ def split_source_title(text):
 def get_today_date():
     return datetime.now().strftime('%Y-%m-%d')
 
-def fetch_stock_news_direct_rss(keywords, max_articles_per_source=20):
+def pre_fetch_all_rss_articles(max_articles_per_source=50):
     """
-    Fetch stock news from direct RSS feeds that provide actual article URLs
-    This is the PRIMARY method that provides real article URLs
+    Fetch all news articles from direct RSS feeds.
+    This is called once at the start of the batch execution.
     """
     all_articles = []
     
@@ -198,6 +198,7 @@ def fetch_stock_news_direct_rss(keywords, max_articles_per_source=20):
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
                 "Accept": "application/rss+xml, application/xml, text/xml, */*"
             }
+            logging.info(f"Pre-fetching RSS source: {source_name}")
             response = requests.get(rss_url, headers=headers, timeout=10)
             
             if response.status_code != 200:
@@ -211,11 +212,6 @@ def fetch_stock_news_direct_rss(keywords, max_articles_per_source=20):
                 logging.warning(f"No entries found in XML for {source_name} - {rss_url}")
                 continue
                 
-        except Exception as e:
-            logging.error(f"Error fetching from {source_name} ({rss_url}): {e}")
-            continue
-        
-        try:
             for entry in feed.entries[:max_articles_per_source]:
                 # Extract article data
                 article = {
@@ -240,31 +236,50 @@ def fetch_stock_news_direct_rss(keywords, max_articles_per_source=20):
                 if article['content']:
                     article['content'] = clean_html_content(article['content'])
                 
-                # Filter for stock/finance related content using robust keyword matcher
-                article_text = f"{article.get('title', '')}\n{article.get('summary', '')}"
-                is_relevant, matched_kws, rel_score = enhanced_keyword_matching(article_text, keywords)
-                
-                if is_relevant and article['url'] and article['title']:
-                    # Add metadata for tracking
+                if article['url'] and article['title']:
                     article['scraped_at'] = datetime.now().isoformat()
-                    article['matched_keywords'] = matched_kws
-                    article['relevance_score'] = rel_score
-                    
-                    # Add relevance tag if headline matches
-                    if rel_score >= 3:
-                        article['is_high_relevance'] = True
-                        
                     all_articles.append(article)
                     
         except Exception as e:
-            logging.error(f"Error processing entries from {source_name}: {e}")
+            logging.error(f"Error pre-fetching from {source_name} ({rss_url}): {e}")
             continue
+            
+    # Remove duplicates based on URL
+    seen_urls = set()
+    unique_articles = []
+    for article in all_articles:
+        if article['url'] not in seen_urls:
+            seen_urls.add(article['url'])
+            unique_articles.append(article)
+            
+    logging.info(f"Pre-fetch complete. Total unique RSS articles retrieved: {len(unique_articles)}")
+    return unique_articles
+
+def filter_rss_articles_in_memory(all_rss_articles, keywords):
+    """
+    Filter the pre-fetched RSS articles in memory using keyword matching.
+    """
+    matched_articles = []
     
+    for article in all_rss_articles:
+        article_text = f"{article.get('title', '')}\n{article.get('summary', '')}"
+        is_relevant, matched_kws, rel_score = enhanced_keyword_matching(article_text, keywords)
+        
+        if is_relevant:
+            # Create a copy so we don't modify the shared pre-fetched articles
+            matched_article = article.copy()
+            matched_article['matched_keywords'] = matched_kws
+            matched_article['relevance_score'] = rel_score
+            
+            if rel_score >= 3:
+                matched_article['is_high_relevance'] = True
+                
+            matched_articles.append(matched_article)
+            
     # Sort by publication date (newest first)
     def parse_date(date_str):
         try:
             if date_str:
-                # Try different date formats
                 for fmt in ['%a, %d %b %Y %H:%M:%S %z', '%Y-%m-%dT%H:%M:%S%z', '%Y-%m-%d %H:%M:%S']:
                     try:
                         return datetime.strptime(date_str.split('+')[0].strip(), fmt.replace('%z', ''))
@@ -273,19 +288,9 @@ def fetch_stock_news_direct_rss(keywords, max_articles_per_source=20):
             return datetime.min
         except:
             return datetime.min
-    
-    all_articles.sort(key=lambda x: parse_date(x['published']), reverse=True)
-    
-    # Remove duplicates based on URL
-    seen_urls = set()
-    unique_articles = []
-    
-    for article in all_articles:
-        if article['url'] not in seen_urls:
-            seen_urls.add(article['url'])
-            unique_articles.append(article)
             
-    return unique_articles
+    matched_articles.sort(key=lambda x: parse_date(x['published']), reverse=True)
+    return matched_articles
 
 def fetch_stock_news(stock):
     """
@@ -450,6 +455,10 @@ def main():
                 logger.info("No active stocks found in database")
                 return
         
+        # Pre-fetch all direct RSS feeds once to avoid redundant network requests inside the stock loop
+        logger.info("Initializing pre-fetch of all direct RSS feeds...")
+        prefetched_rss_articles = pre_fetch_all_rss_articles(max_articles_per_source=50)
+
         for stock in stocks:
             id = stock['id']
             yfin_symbol = stock.get('yfin_symbol')
@@ -474,11 +483,11 @@ def main():
             found = 0
             logger.info(f"Fetching news for {id} using keywords: {keywords}")
             
-            # PRIMARY METHOD: Direct RSS feeds (provides actual article URLs)
+            # PRIMARY METHOD: Direct RSS feeds (filtered in-memory)
             try:
-                logger.info(f"  -> Using DIRECT RSS feeds for {id}")
-                rss_news = fetch_stock_news_direct_rss(keywords, max_articles_per_source=50)  # Increased to 50 for more comprehensive coverage
-                logger.info(f"  -> {len(rss_news)} articles found from RSS feeds")
+                logger.info(f"  -> Filtering pre-fetched RSS feeds in-memory for {id}")
+                rss_news = filter_rss_articles_in_memory(prefetched_rss_articles, keywords)
+                logger.info(f"  -> {len(rss_news)} relevant articles found from RSS feeds in-memory")
                 found += len(rss_news)
                 
                 # Process RSS articles
