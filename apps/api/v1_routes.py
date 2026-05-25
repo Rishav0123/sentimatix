@@ -11,6 +11,7 @@ from rapidapi_auth import get_rapidapi_tier, is_rapidapi_request
 
 
 logger = logging.getLogger(__name__)
+from historical_query_engine import historical_engine
 
 # Mixpanel analytics integration initialized
 MIXPANEL_TOKEN = os.getenv("MIXPANEL_TOKEN")
@@ -122,6 +123,15 @@ async def get_news(
     tier: str = Depends(get_user_tier)
 ):
     try:
+        # Normalize FastAPI Query defaults for direct testing contexts
+        symbols = symbols if isinstance(symbols, str) else None
+        sectors = sectors if isinstance(sectors, str) else None
+        sentiment = sentiment if isinstance(sentiment, str) else None
+        published_after = published_after if isinstance(published_after, str) else None
+        published_before = published_before if isinstance(published_before, str) else None
+        page = page if isinstance(page, int) else 1
+        limit = limit if isinstance(limit, int) else 10
+
         track_api_call(user.get('id', 'unknown'), '/api/v1/news', tier, {"symbols": symbols, "sentiment": sentiment})
         # Tier Enforcements
         if tier == 'free':
@@ -139,44 +149,130 @@ async def get_news(
                 # If symbols are provided, we can look back up to 90 days
                 published_after = (datetime.now(timezone.utc) - timedelta(days=90)).strftime('%Y-%m-%d')
 
-        query = supabase.table('news').select('*').eq('is_ready', 'Y')
-        count_query = supabase.table('news').select('id', count='estimated').eq('is_ready', 'Y')
-
-        if symbols:
-            sym_list = [s.strip().upper() + '.NS' if not s.endswith('.NS') else s.strip().upper() for s in symbols.split(',')]
-            query = query.in_('yfin_symbol', sym_list)
-            count_query = count_query.in_('yfin_symbol', sym_list)
-            
+        # Resolve dynamic sector list to yfin_symbols to fix original PostgreSQL schema bug
+        resolved_symbols = None
         if sectors:
             sec_list = [s.strip() for s in sectors.split(',')]
-            query = query.in_('sector', sec_list)
-            count_query = count_query.in_('sector', sec_list)
+            stocks_res = supabase.table('stocks').select('yfin_symbol').in_('sector', sec_list).execute()
+            if stocks_res.data:
+                resolved_symbols = [s['yfin_symbol'] for s in stocks_res.data if s.get('yfin_symbol')]
+            else:
+                resolved_symbols = []
 
-        if sentiment:
-            query = query.eq('sentiment', sentiment.lower())
-            count_query = count_query.eq('sentiment', sentiment.lower())
+        final_symbols = None
+        if symbols:
+            input_symbols = [s.strip().upper() + '.NS' if not s.endswith('.NS') else s.strip().upper() for s in symbols.split(',')]
+            if resolved_symbols is not None:
+                final_symbols = list(set(input_symbols) & set(resolved_symbols))
+            else:
+                final_symbols = input_symbols
+        elif resolved_symbols is not None:
+            final_symbols = resolved_symbols
 
-        if published_after:
-            query = query.gte('published_at', f"{published_after}T00:00:00Z")
-            count_query = count_query.gte('published_at', f"{published_after}T00:00:00Z")
+        # Define 30-day Hot-Cold Cutoff
+        retention_cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+        retention_cutoff_str = retention_cutoff.strftime('%Y-%m-%d')
+
+        # 1. Query Hot Tier (Supabase Postgres) Count
+        live_count = 0
+        if not (published_before and published_before < retention_cutoff_str) and final_symbols != []:
+            count_query = supabase.table('news').select('id', count='estimated').eq('is_ready', 'Y')
             
-        if published_before:
-            query = query.lte('published_at', f"{published_before}T23:59:59Z")
-            count_query = count_query.lte('published_at', f"{published_before}T23:59:59Z")
+            if final_symbols is not None:
+                count_query = count_query.in_('yfin_symbol', final_symbols)
+            if sentiment:
+                count_query = count_query.eq('sentiment', sentiment.lower())
+            if published_before:
+                count_query = count_query.lte('published_at', f"{published_before}T23:59:59Z")
+                
+            hot_start = published_after if (published_after and published_after > retention_cutoff_str) else retention_cutoff_str
+            count_query = count_query.gte('published_at', f"{hot_start}T00:00:00Z")
             
-        if only_market_sensitive and tier in ['pro', 'enterprise']:
-            query = query.eq('is_volatile', True)
-            count_query = count_query.eq('is_volatile', True)
+            if only_market_sensitive and tier in ['pro', 'enterprise']:
+                count_query = count_query.eq('is_volatile', True)
+                
+            try:
+                count_res = count_query.execute()
+                live_count = count_res.count if count_res and hasattr(count_res, 'count') and count_res.count is not None else 0
+            except Exception as e:
+                logger.warning(f"Live count query timed out or failed: {e}. Falling back to 0.")
+                live_count = 0
 
-        # Execute Count
-        count_res = count_query.execute()
-        found = count_res.count if count_res and hasattr(count_res, 'count') and count_res.count is not None else 0
+        # 2. Query Cold Tier (DuckDB Parquet) Count
+        cold_count = 0
+        query_cold = True
+        if published_after and published_after >= retention_cutoff_str:
+            query_cold = False
 
-        # Execute Query
-        offset = (page - 1) * limit
-        query = query.order('published_at', desc=True).range(offset, offset + limit - 1)
-        response = query.execute()
-        news_data = response.data if response and hasattr(response, 'data') and isinstance(response.data, list) else []
+        if query_cold and final_symbols != []:
+            cold_end = published_before if (published_before and published_before < retention_cutoff_str) else retention_cutoff_str
+            cold_count, _ = historical_engine.query_historical_news(
+                symbols=final_symbols,
+                sentiment=sentiment,
+                published_after=published_after,
+                published_before=cold_end,
+                only_market_sensitive=only_market_sensitive,
+                limit=0,
+                offset=0
+            )
+
+        found = live_count + cold_count
+        news_data = []
+
+        # 3. Paginated Retrieval using Disjoint Offset Shift
+        if final_symbols != []:
+            offset = (page - 1) * limit
+            
+            if offset < live_count:
+                # Query Hot Tier (Supabase)
+                query = supabase.table('news').select('*').eq('is_ready', 'Y')
+                if final_symbols is not None:
+                    query = query.in_('yfin_symbol', final_symbols)
+                if sentiment:
+                    query = query.eq('sentiment', sentiment.lower())
+                if published_before:
+                    query = query.lte('published_at', f"{published_before}T23:59:59Z")
+                hot_start = published_after if (published_after and published_after > retention_cutoff_str) else retention_cutoff_str
+                query = query.gte('published_at', f"{hot_start}T00:00:00Z")
+                if only_market_sensitive and tier in ['pro', 'enterprise']:
+                    query = query.eq('is_volatile', True)
+                
+                query = query.order('published_at', desc=True).range(offset, offset + limit - 1)
+                try:
+                    response = query.execute()
+                    news_data = response.data if response and hasattr(response, 'data') and isinstance(response.data, list) else []
+                except Exception as e:
+                    logger.warning(f"Live news query timed out or failed: {e}. Falling back to empty and relying on cold tier.")
+                    news_data = []
+                
+                # Fetch remainder from Cold Tier (DuckDB) if needed
+                if len(news_data) < limit and query_cold:
+                    remaining_limit = limit - len(news_data)
+                    cold_end = published_before if (published_before and published_before < retention_cutoff_str) else retention_cutoff_str
+                    _, cold_records = historical_engine.query_historical_news(
+                        symbols=final_symbols,
+                        sentiment=sentiment,
+                        published_after=published_after,
+                        published_before=cold_end,
+                        only_market_sensitive=only_market_sensitive,
+                        limit=remaining_limit,
+                        offset=0
+                    )
+                    news_data.extend(cold_records)
+            else:
+                # Query Cold Tier (DuckDB) only
+                adjusted_offset = offset - live_count
+                cold_end = published_before if (published_before and published_before < retention_cutoff_str) else retention_cutoff_str
+                _, cold_records = historical_engine.query_historical_news(
+                    symbols=final_symbols,
+                    sentiment=sentiment,
+                    published_after=published_after,
+                    published_before=cold_end,
+                    only_market_sensitive=only_market_sensitive,
+                    limit=limit,
+                    offset=adjusted_offset
+                )
+                news_data = cold_records
 
         if not news_data:
             return {

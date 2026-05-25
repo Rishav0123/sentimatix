@@ -9,3 +9,7 @@ itsdangerous
 razorpay
 mixpanel
 yfinance>=0.2.40
+duckdb>=0.10.0
+pyarrow>=14.0.0
+pandas>=2.0.0
+boto3>=1.30.0
