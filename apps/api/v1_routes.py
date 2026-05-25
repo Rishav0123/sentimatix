@@ -311,10 +311,9 @@ async def get_news(
                 "sentiment": n.get('sentiment')
             }
             
-            if tier in ['pro', 'enterprise']:
-                item["sentiment_score"] = n.get('sentiment_score')
-                item["confidence"] = n.get('confidence')
-                item["is_market_sensitive"] = n.get('is_volatile')
+            item["sentiment_score"] = n.get('sentiment_score')
+            item["confidence"] = n.get('confidence')
+            item["is_market_sensitive"] = n.get('is_volatile')
                 
             symbol = n.get('yfin_symbol')
             if symbol and symbol in stock_cache:
