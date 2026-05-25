@@ -44,7 +44,26 @@ def scrape_moneycontrol_news_selenium(company_name: str, symbol: str, stock_name
     chrome_options.add_argument("--blink-settings=imagesEnabled=false")
     chrome_options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+    # Try to install/get chromedriver path from webdriver_manager, fall back to local cache on network error
+    try:
+        driver_path = ChromeDriverManager().install()
+    except Exception as wdm_err:
+        print(f"Webdriver Manager online check failed: {wdm_err}. Attempting local fallback...")
+        import glob
+        wdm_dir_32 = os.path.expanduser("~/.wdm/drivers/chromedriver/win32/*/chromedriver.exe")
+        wdm_dir_64 = os.path.expanduser("~/.wdm/drivers/chromedriver/win64/*/chromedriver.exe")
+        wdm_dir_32_slash = os.path.expanduser("~/.wdm/drivers/chromedriver/win32/*/chromedriver-win32/chromedriver.exe")
+        wdm_dir_64_slash = os.path.expanduser("~/.wdm/drivers/chromedriver/win64/*/chromedriver-win32/chromedriver.exe")
+        local_drivers = glob.glob(wdm_dir_32) + glob.glob(wdm_dir_64) + glob.glob(wdm_dir_32_slash) + glob.glob(wdm_dir_64_slash)
+        if local_drivers:
+            local_drivers.sort()
+            driver_path = local_drivers[-1]
+            print(f"Found cached local driver: {driver_path}")
+        else:
+            driver_path = "chromedriver"
+            print("No cached driver found. Falling back to system 'chromedriver' in PATH.")
+
+    driver = webdriver.Chrome(service=Service(driver_path), options=chrome_options)
 
     try:
         driver.get(url)
