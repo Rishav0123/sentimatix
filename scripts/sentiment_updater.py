@@ -93,15 +93,25 @@ def update_all_stocks_sentiment():
     try:
         logger.info("Starting sentiment update for all stocks...")
         
-        # Get all stocks - use correct column names from stocks table
-        stocks_query = supabase.table('stocks').select('id, stock_name, yfin_symbol').execute()
-        
-        if not stocks_query.data:
+        # Get all stocks using pagination to support 2,000+ stocks (default limit is 1,000)
+        all_stocks = []
+        limit = 1000
+        offset = 0
+        while True:
+            stocks_query = supabase.table('stocks').select('id, stock_name, yfin_symbol').range(offset, offset + limit - 1).execute()
+            if not stocks_query.data:
+                break
+            all_stocks.extend(stocks_query.data)
+            if len(stocks_query.data) < limit:
+                break
+            offset += limit
+            
+        if not all_stocks:
             logger.warning("No stocks found")
             return
         
         updated_count = 0
-        for stock in stocks_query.data:
+        for stock in all_stocks:
             stock_id = stock['id']
             stock_name = stock.get('stock_name', 'Unknown')
             yfin_symbol = stock['yfin_symbol']
