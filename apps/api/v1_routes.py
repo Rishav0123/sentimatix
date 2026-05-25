@@ -323,7 +323,9 @@ async def get_news(
                     "name": stock_info.get('stock_name'),
                     "sector": stock_info.get('sector'),
                     "country": stock_info.get('country'),
-                    "exchange": stock_info.get('exchange')
+                    "exchange": stock_info.get('exchange'),
+                    "sentiment_7d": stock_info.get('sentiment_7d'),
+                    "sentiment_30d": stock_info.get('sentiment_30d')
                 }]
             else:
                 item["entities"] = []
@@ -389,9 +391,8 @@ async def get_entities(
                 "exchange": s.get('exchange'),
                 "country": s.get('country')
             }
-            if tier in ['pro', 'enterprise']:
-                item["sentiment_7d"] = s.get('sentiment_7d')
-                item["sentiment_30d"] = s.get('sentiment_30d')
+            item["sentiment_7d"] = s.get('sentiment_7d')
+            item["sentiment_30d"] = s.get('sentiment_30d')
             formatted_stocks.append(item)
 
         return {"data": formatted_stocks}

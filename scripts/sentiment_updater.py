@@ -44,16 +44,21 @@ def calculate_weighted_sentiment(sentiment_data, sentiment_days):
     
     return weighted_sum / total_weight if total_weight > 0 else 0.0
 
-def update_stock_sentiment(stock_symbol, yfin_symbol, sentiment_days=30):
+def update_stock_sentiment(stock_symbol, yfin_symbol, stock_id=None, sentiment_days=30):
     """Update sentiment for a single stock"""
     try:
         # Calculate date cutoff
         cutoff_date = datetime.now() - timedelta(days=sentiment_days)
         
         # Get sentiment data for this stock
-        news_query = supabase.table('news').select(
-            'sentiment_score, published_at'
-        ).eq('yfin_symbol', yfin_symbol).gte('published_at', cutoff_date.isoformat()).execute()
+        if stock_id:
+            news_query = supabase.table('news').select(
+                'sentiment_score, published_at'
+            ).eq('stock_id', stock_id).gte('published_at', cutoff_date.isoformat()).execute()
+        else:
+            news_query = supabase.table('news').select(
+                'sentiment_score, published_at'
+            ).eq('yfin_symbol', yfin_symbol).gte('published_at', cutoff_date.isoformat()).execute()
         
         if not news_query.data:
             return 0.0
@@ -104,9 +109,9 @@ def update_all_stocks_sentiment():
             # Extract clean symbol from yfin_symbol for display
             clean_symbol = yfin_symbol.replace('.NS', '') if yfin_symbol else stock_name
             
-            # Calculate 30-day and 7-day sentiment
-            sentiment_30d = update_stock_sentiment(clean_symbol, yfin_symbol, 30)
-            sentiment_7d = update_stock_sentiment(clean_symbol, yfin_symbol, 7)
+            # Calculate 30-day and 7-day sentiment using the indexed stock_id
+            sentiment_30d = update_stock_sentiment(clean_symbol, yfin_symbol, stock_id, 30)
+            sentiment_7d = update_stock_sentiment(clean_symbol, yfin_symbol, stock_id, 7)
             
             # Update the stocks table
             try:
@@ -145,9 +150,9 @@ def update_single_stock_sentiment(yfin_symbol):
         # Extract clean symbol for display
         clean_symbol = yfin_symbol.replace('.NS', '') if yfin_symbol else stock_name
         
-        # Calculate sentiment
-        sentiment_30d = update_stock_sentiment(clean_symbol, yfin_symbol, 30)
-        sentiment_7d = update_stock_sentiment(clean_symbol, yfin_symbol, 7)
+        # Calculate sentiment using the indexed stock_id
+        sentiment_30d = update_stock_sentiment(clean_symbol, yfin_symbol, stock_id, 30)
+        sentiment_7d = update_stock_sentiment(clean_symbol, yfin_symbol, stock_id, 7)
         
         # Update database
         supabase.table('stocks').update({
