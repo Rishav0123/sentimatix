@@ -175,7 +175,7 @@ async def get_news(
 
         # 1. Query Hot Tier (Supabase Postgres) Count
         live_count = 0
-        if not (published_before and published_before < retention_cutoff_str) and final_symbols != []:
+        if final_symbols != []:
             count_query = supabase.table('news').select('id', count='estimated').eq('is_ready', 'Y')
             
             if final_symbols is not None:
@@ -184,9 +184,8 @@ async def get_news(
                 count_query = count_query.eq('sentiment', sentiment.lower())
             if published_before:
                 count_query = count_query.lte('published_at', f"{published_before}T23:59:59Z")
-                
-            hot_start = published_after if (published_after and published_after > retention_cutoff_str) else retention_cutoff_str
-            count_query = count_query.gte('published_at', f"{hot_start}T00:00:00Z")
+            if published_after:
+                count_query = count_query.gte('published_at', f"{published_after}T00:00:00Z")
             
             if only_market_sensitive and tier in ['pro', 'enterprise']:
                 count_query = count_query.eq('is_volatile', True)
@@ -205,12 +204,11 @@ async def get_news(
             query_cold = False
 
         if query_cold and final_symbols != []:
-            cold_end = published_before if (published_before and published_before < retention_cutoff_str) else retention_cutoff_str
             cold_count, _ = historical_engine.query_historical_news(
                 symbols=final_symbols,
                 sentiment=sentiment,
                 published_after=published_after,
-                published_before=cold_end,
+                published_before=published_before,
                 only_market_sensitive=only_market_sensitive,
                 limit=0,
                 offset=0
@@ -232,8 +230,8 @@ async def get_news(
                     query = query.eq('sentiment', sentiment.lower())
                 if published_before:
                     query = query.lte('published_at', f"{published_before}T23:59:59Z")
-                hot_start = published_after if (published_after and published_after > retention_cutoff_str) else retention_cutoff_str
-                query = query.gte('published_at', f"{hot_start}T00:00:00Z")
+                if published_after:
+                    query = query.gte('published_at', f"{published_after}T00:00:00Z")
                 if only_market_sensitive and tier in ['pro', 'enterprise']:
                     query = query.eq('is_volatile', True)
                 
@@ -248,12 +246,11 @@ async def get_news(
                 # Fetch remainder from Cold Tier (DuckDB) if needed
                 if len(news_data) < limit and query_cold:
                     remaining_limit = limit - len(news_data)
-                    cold_end = published_before if (published_before and published_before < retention_cutoff_str) else retention_cutoff_str
                     _, cold_records = historical_engine.query_historical_news(
                         symbols=final_symbols,
                         sentiment=sentiment,
                         published_after=published_after,
-                        published_before=cold_end,
+                        published_before=published_before,
                         only_market_sensitive=only_market_sensitive,
                         limit=remaining_limit,
                         offset=0
@@ -262,12 +259,11 @@ async def get_news(
             else:
                 # Query Cold Tier (DuckDB) only
                 adjusted_offset = offset - live_count
-                cold_end = published_before if (published_before and published_before < retention_cutoff_str) else retention_cutoff_str
                 _, cold_records = historical_engine.query_historical_news(
                     symbols=final_symbols,
                     sentiment=sentiment,
                     published_after=published_after,
-                    published_before=cold_end,
+                    published_before=published_before,
                     only_market_sensitive=only_market_sensitive,
                     limit=limit,
                     offset=adjusted_offset
