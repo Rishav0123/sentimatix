@@ -2,12 +2,16 @@ import os
 import time
 import httpx
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from dotenv import load_dotenv
+
+# Load local .env from the script's directory
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path)
+
 from main import run_pipeline
 from distributor import distribute_content
 from sentiment_engine import AMDSentimentEngine
-
-load_dotenv()
 
 API_URL = os.environ.get("SENTIMATIX_API_URL")
 API_KEY = os.environ.get("SENTIMATIX_API_KEY")
@@ -96,7 +100,7 @@ async def main():
     
     # 5. Execute the pipeline
     try:
-        result = run_pipeline(selected_stock)
+        result = await run_pipeline(selected_stock)
         
         # 6. Log the run via API
         if log_run(result):

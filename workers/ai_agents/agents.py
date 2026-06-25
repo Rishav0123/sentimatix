@@ -1,10 +1,24 @@
+import os
+from dotenv import load_dotenv
 from crewai import Agent, LLM
 
-# Connect CrewAI to our local MI300X vLLM instance
+# Load environment variables
+load_dotenv()
+
+# Connect CrewAI to our LLM instance (defaults to local Ollama)
+LLM_MODEL = os.environ.get("LLM_MODEL", "ollama/qwen2.5:7b")
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "ollama")
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1")
+
+# LiteLLM/CrewAI expects the base_url for native 'ollama/' models to be without '/v1' suffix.
+# We strip it dynamically here to prevent routing issues and OpenAI timeout fallbacks.
+if LLM_MODEL.startswith("ollama/") and LLM_BASE_URL.endswith("/v1"):
+    LLM_BASE_URL = LLM_BASE_URL.replace("/v1", "")
+
 llm = LLM(
-    model="openai/Qwen/Qwen2.5-7B-Instruct",
-    api_key="EMPTY",
-    base_url="http://134.199.192.8:8000/v1"
+    model=LLM_MODEL,
+    api_key=LLM_API_KEY,
+    base_url=LLM_BASE_URL
 )
 
 

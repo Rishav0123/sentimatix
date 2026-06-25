@@ -87,7 +87,7 @@ def archive_pipeline(retention_days: int, dry_run: bool, allow_local_pruning: bo
     logger.info(f"Archiving articles published before: {cutoff_str}")
 
     # Fetch articles in batches using Cursor-Based Pagination
-    batch_size = 5000
+    batch_size = 1000
     all_articles = []
     last_published_at = None
 
@@ -192,10 +192,10 @@ def archive_pipeline(retention_days: int, dry_run: bool, allow_local_pruning: bo
                 logger.error(f"Failed to verify Parquet row count: {e}. Aborting pruning.")
                 sys.exit(1)
 
-            # Prune in batches from Supabase Postgres to avoid timeouts
-            logger.info("Deleting archived rows from Supabase Postgres in batches of 1000...")
+            # Prune in batches from Supabase Postgres to avoid URL length limit / timeouts
+            logger.info("Deleting archived rows from Supabase Postgres in batches of 100...")
             ids_to_delete = [item["id"] for item in all_articles]
-            delete_batch_size = 1000
+            delete_batch_size = 100
             deleted_count = 0
 
             for i in range(0, len(ids_to_delete), delete_batch_size):

@@ -5,7 +5,7 @@ from tasks import FinanceTasks
 from data_fetcher import fetch_stock_brief
 
 
-def run_pipeline(stock_symbol: str = "RELIANCE"):
+async def run_pipeline(stock_symbol: str = "RELIANCE"):
     print(f"\n{'='*60}")
     print(f"  Sentimatix AI Agent Pipeline")
     print(f"  Stock: {stock_symbol}")
@@ -28,19 +28,19 @@ def run_pipeline(stock_symbol: str = "RELIANCE"):
     # ── Step 3: Build tasks with data injected into prompts ──
     analyse   = tasks_obj.analyse_task(analyst, stock_symbol, brief)
     snippet   = tasks_obj.social_snippet_task(writer, stock_symbol, brief)
-    reddit    = tasks_obj.reddit_task(writer, stock_symbol, brief)
-    medium    = tasks_obj.medium_task(writer, stock_symbol, brief)
+    # reddit    = tasks_obj.reddit_task(writer, stock_symbol, brief)
+    # medium    = tasks_obj.medium_task(writer, stock_symbol, brief)
     compliant = tasks_obj.compliance_task(compliance)
 
     # ── Step 4: Run the crew sequentially ──
     crew = Crew(
         agents=[analyst, writer, compliance],
-        tasks=[analyse, snippet, reddit, medium, compliant],
+        tasks=[analyse, snippet, compliant],
         process=Process.sequential,
         verbose=True,
     )
 
-    result = crew.kickoff()
+    result = await crew.kickoff_async()
 
     print("\n" + "="*60)
     print("  FINAL APPROVED CONTENT")
@@ -56,5 +56,6 @@ def run_pipeline(stock_symbol: str = "RELIANCE"):
 
 
 if __name__ == "__main__":
+    import asyncio
     symbol = sys.argv[1] if len(sys.argv) > 1 else "RELIANCE"
-    run_pipeline(symbol)
+    asyncio.run(run_pipeline(symbol))

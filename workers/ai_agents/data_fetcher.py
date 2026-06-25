@@ -23,14 +23,34 @@ def fetch_stock_brief(stock_symbol: str, limit: int = 10) -> str:
     # Ensure symbol has .NS suffix
     symbol = stock_symbol if stock_symbol.endswith(".NS") else f"{stock_symbol}.NS"
 
-    response = (
-        sb.table("news")
-        .select("title, source, published_at, sentiment, url")
-        .eq("yfin_symbol", symbol)
-        .order("published_at", desc=True)
-        .limit(limit)
-        .execute()
-    )
+    # Filter for the last 30 days to leverage the index and keep the brief relevant
+    since = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+
+    # Query the stocks table first to get the indexed stock UUID
+    stock_resp = sb.table("stocks").select("id").eq("yfin_symbol", symbol).execute()
+    
+    if stock_resp.data:
+        stock_id = stock_resp.data[0]["id"]
+        response = (
+            sb.table("news")
+            .select("title, source, published_at, sentiment, url")
+            .eq("stock_id", stock_id)
+            .gte("published_at", since)
+            .order("published_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+    else:
+        # Fallback to symbol-based query if not found in stocks directory
+        response = (
+            sb.table("news")
+            .select("title, source, published_at, sentiment, url")
+            .eq("yfin_symbol", symbol)
+            .gte("published_at", since)
+            .order("published_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
 
     articles = response.data
     if not articles:

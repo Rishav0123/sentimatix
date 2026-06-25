@@ -255,55 +255,7 @@ def main():
         traceback.print_exc()
 
     # 3. Parallelize MoneyControl
-    print(f"\n[DEBUG] Entering MoneyControl block.")
-    try:
-        mc_batches = list(chunk_list(all_stocks, 5))
-        total_mc_batches = len(mc_batches)
-        print(f"[DEBUG] MoneyControl batches: {total_mc_batches}")
-        console_info(f"Running MoneyControl in {total_mc_batches} batches (5 stocks each)...")
-    
-        mc_metrics = {}
-        mc_inserted = 0
-        mc_skipped = 0
-        completed_mc_batches = 0
-        
-        if mc_batches:
-            # Render starting state of MoneyControl progress bar
-            draw_progress_bar(0, total_mc_batches, prefix="MC Progress:   ", status="Starting...")
-            
-            with ProcessPoolExecutor(max_workers=8) as executor:
-                futures = [executor.submit(run_scraper_batch, 'scrape_moneycontrol.py', batch, run_id) for batch in mc_batches]
-                for future in as_completed(futures):
-                    try:
-                        res = future.result()
-                        logger.info(res['message'])
-                        
-                        if res['metrics']:
-                            for sym, val in res['metrics'].items():
-                                mc_metrics[sym] = val
-                            
-                            # Extract and add stats
-                            ins, skp = extract_batch_stats(res['metrics'])
-                            mc_inserted += ins
-                            mc_skipped += skp
-                        
-                        completed_mc_batches += 1
-                        draw_progress_bar(
-                            completed_mc_batches,
-                            total_mc_batches,
-                            prefix="MC Progress:   ",
-                            status=f"Inserted: {mc_inserted} | Skipped: {mc_skipped}"
-                        )
-                    except Exception as fe:
-                        sys.stdout.write("\n")
-                        print(f"[DEBUG] Future result error in MC: {fe}")
-            print() # End the progress bar line
-                        
-        log_scraper_report('moneycontrol', run_id, mc_metrics)
-    except Exception as me:
-        print(f"[DEBUG] CRITICAL ERROR in MoneyControl block: {me}")
-        import traceback
-        traceback.print_exc()
+    console_info("MoneyControl scraping is skipped.")
 
     # 4. Telegram (Single Fetch Optimization)
     print(f"\n[DEBUG] Entering Telegram block.")

@@ -1,0 +1,541 @@
+{
+  "entities": [
+    {
+      "symbol": "VIRINCHI.NS",
+      "name": "Virinchi Limited",
+      "sector": "Technology",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": -0.01,
+      "sentiment_30d": 8.47
+    },
+    {
+      "symbol": "VTL.NS",
+      "name": "Vardhman Textiles Limited",
+      "sector": "Consumer Cyclical",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": -0.08,
+      "sentiment_30d": -1.75
+    },
+    {
+      "symbol": "JAGSNPHARM.NS",
+      "name": "Jagsonpal Pharmaceuticals Limited",
+      "sector": "Healthcare",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": 0.0,
+      "sentiment_30d": 26.84
+    },
+    {
+      "symbol": "VITAL.NS",
+      "name": "Vital Chemtech Limited",
+      "sector": "Basic Materials",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": 11.41,
+      "sentiment_30d": 3.2
+    },
+    {
+      "symbol": "MUTHOOTFIN.NS",
+      "name": "Muthoot Finance Limited",
+      "sector": "Finance",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": 20.23,
+      "sentiment_30d": 16.37
+    },
+    {
+      "symbol": "VISASTEEL.NS",
+      "name": "Visa Steel Limited",
+      "sector": "Basic Materials",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": 0.0,
+      "sentiment_30d": 11.61
+    },
+    {
+      "symbol": "VLEGOV.NS",
+      "name": "VL E-Governance & IT Solutions Limited",
+      "sector": "Technology",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": -22.88,
+      "sentiment_30d": -10.41
+    },
+    {
+      "symbol": "VIPULLTD.NS",
+      "name": "Vipul Limited",
+      "sector": "Real Estate",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": 0.0,
+      "sentiment_30d": 0.0
+    },
+    {
+      "symbol": "VIPIND.NS",
+      "name": "VIP Industries Limited",
+      "sector": "Consumer Cyclical",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": 1.61,
+      "sentiment_30d": -14.29
+    },
+    {
+      "symbol": "VISAKAIND.NS",
+      "name": "Visaka Industries Limited",
+      "sector": "Industrials",
+      "exchange": "NSE",
+      "country": "IN",
+      "sentiment_7d": -0.54,
+      "sentiment_30d": 12.22
+    }
+  ],
+  "news": [
+    {
+      "uuid": "c6227cbc-9285-42b6-a55f-7f198ca986fa",
+      "title": "Ambit downgrades IOC, HPCL, BPCL targets by upto 57%; calls RIL, upstream oil ‘only winners’",
+      "snippet": "financialexpress.com More Ambit downgrades IOC, HPCL, BPCL targets by upto 57%; calls RIL, upstream oil ‘only winners’ 26 Mar",
+      "url": "https://news.google.com/read/CBMizwFBVV95cUxNYWVTdmRUVG5zeUxuRV9hYVc3dGJDY3NHc3hOTkU5TWJMWXJuWXFJeFVMaFRhNWhfNzZjSVBlemVQanVTNGFSenlLd19HZXV5X1hZSGhKNVJCcWhyQno5WVE0ZmJaUl9GdWF0RkhVaHp6THQ1U2ZveVVTTVFRbEZNVktibU9GdE8xQnpaQmlMaVFodm1OXzM5QnFQNWlNYjdremR1d2dPNHR3N3RLVlFBX3JQdnVkbEdrQjNuN0VjTkw3RmJKNjNqcWxzLXBYY1nSAdYBQVVfeXFMUGY5TldITUZibzYzalgxaEoteE1MaDVoYjB0M2JLOFlTUURwVzJDRXZ3MktqMVNIb2hBLVF0YlZYejhrbmdNS3ZmSmFpZ3VVcVNvUTRxVW81VWVfVlp0UHgtS1hWeXZIT3E3a0pXOFVvUkdJaExHSTBJVUN1YjBNLUVkdDI5aTd5VDZQUWZtV1NINnV1andUY3llN3BkYUNhRnoyRlo0bUY1aDdzSkVSLTFuS3c2Y0hQakd5TkNiOGFkV0ZhbDhzUDZiNzBlTDJ4QjZYb3Bzdw?hl=en-IN&gl=IN&ceid=IN%3Aen",
+      "source": "financialexpress.com",
+      "published_at": "2026-03-26T07:00:00+00:00",
+      "sentiment": "neutral",
+      "sentiment_score": -0.1116,
+      "confidence": 0.4893,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "RELIANCE.NS",
+          "name": "Reliance Industries",
+          "sector": "Conglomerate",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": 3.34,
+          "sentiment_30d": 5.5
+        }
+      ]
+    },
+    {
+      "uuid": "1ec21c92-98a3-45fc-9bd2-9abca2861be5",
+      "title": "Jio Financial Services Subsidiary Invests ₹63.94 Crore in Reliance JV Partnership",
+      "snippet": "scanx.trade More Jio Financial Services Subsidiary Invests ₹63.94 Crore in Reliance JV Partnership 26 Mar",
+      "url": "https://news.google.com/read/CBMi3gFBVV95cUxOVC1lWXRWYTdPX1VnYU1zekpiTnRZY3RZZ0U5VmxNTHNUSlQxV3dIT01CZVExVU1EbHkwaS1IWllWV2pIYW5FeDQ4S2ZOSnU4VmI2cGdhYTV0N3ptT0tkRVBISzNQeWtYeVJ6bnJOWk9HX3BRRy1OUnRERlA4dmFybk9hbzZGOVRkWjkyVnp1d1A1TGpfaHd0UUpLWnU5Tk9RLVhVLWVQb2RVR3ZWM1dRbFJrVGRyY3V0bDlRNGJxaXVwMEtfQ1ZBcjZ0QWZUMmpzM2d5YTF1eTFZNDJDX1E?hl=en-IN&gl=IN&ceid=IN%3Aen",
+      "source": "scanx.trade",
+      "published_at": "2026-03-26T07:00:00+00:00",
+      "sentiment": "neutral",
+      "sentiment_score": 0.0024,
+      "confidence": 0.9224,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "RELIANCE.NS",
+          "name": "Reliance Industries",
+          "sector": "Conglomerate",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": 3.34,
+          "sentiment_30d": 5.5
+        }
+      ]
+    },
+    {
+      "uuid": "15092aff-1fe5-4642-b3aa-dd795d98cf0f",
+      "title": "TCS Q4 results FY26: IT major releases earnings date, final dividend in focus; check financials, other details",
+      "snippet": "Upstox More TCS Q4 results FY26: IT major releases earnings date, final dividend in focus; check financials, other details 25 Mar",
+      "url": "https://news.google.com/read/CBMihgJBVV95cUxPTktrdV9kQk9xajhlVXhFLVQ4STBrRURqYXdycUtqeC1uZFZBcEI4UkdzYmc0V1FXSW1fUGpDS2xDekZpd1czTUF1dktLbnBXMk54WEYtV0lvbTNkbkxLbHprMEdSSVViX1Rjb194V1FEVUphQy1qNFpfWWRRYWF4ZW56aVotYTVURlR3NldlXzFnSC00eU9uckJGV1lqQUtjcWI0Q0RUWEpLaGpUbFFsaTd5a0NUTW9ibncyM0l4VDlsc2N2VkdJdkp4Z3VBUGpLek1SdnpuRWtDeHZQREFlYkF6bW5fZ29Tdlg2V2FLMlJXNVRCNy0wWTJ0QkFpU2VDSVp5WkVn?hl=en-IN&gl=IN&ceid=IN%3Aen",
+      "source": "Upstox",
+      "published_at": "2026-03-25T07:00:00+00:00",
+      "sentiment": "neutral",
+      "sentiment_score": -0.0157,
+      "confidence": 0.7615,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "TCS.NS",
+          "name": "Tata Consultancy Services",
+          "sector": "IT Services",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": -4.54,
+          "sentiment_30d": -9.24
+        }
+      ]
+    },
+    {
+      "uuid": "2bd9e862-8841-43be-a23d-be84c934b861",
+      "title": "Exclusive-India's Reliance buys 5 million barrels of Iranian oil after US waiver, sources say",
+      "snippet": "Yahoo Finance Singapore More Exclusive-India's Reliance buys 5 million barrels of Iranian oil after US waiver, sources say 24 Mar",
+      "url": "https://news.google.com/read/CBMiiAFBVV95cUxObmIwYVl5Q0JORW5sTGlkazg5cWkydTN3OVdyc1E1bkxIY1JwNzlTbHJRS0FjbmV1c1IwekN1VEQzWjk5RGdwalZCUEtjb3gwcmV1Tk9vUjA2NEhVYll2amFTOWdjM3RFcXdCYU1NUkpNQW1FR2czREIwT1hmWXE2Z0FQdWNCenA0?hl=en-IN&gl=IN&ceid=IN%3Aen",
+      "source": "Yahoo Finance Singapore",
+      "published_at": "2026-03-24T07:00:00+00:00",
+      "sentiment": "neutral",
+      "sentiment_score": 0.0173,
+      "confidence": 0.8099,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "RELIANCE.NS",
+          "name": "Reliance Industries",
+          "sector": "Conglomerate",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": 3.34,
+          "sentiment_30d": 5.5
+        }
+      ]
+    },
+    {
+      "uuid": "a9c438aa-8c3e-46cb-8587-91f74e555309",
+      "title": "HDFC Bank to Reliance Industries: Why top brokerages are bullish on these 5 stocks with up to 55% upside",
+      "snippet": "financialexpress.com More HDFC Bank to Reliance Industries: Why top brokerages are bullish on these 5 stocks with up to 55% upside 22 Mar",
+      "url": "https://news.google.com/read/CBMi5gFBVV95cUxObXN2TDhxSmEyOUFSeU5BLU5wNTFpS2lMSG55OC1LbmFUYmtEUUFKUDVqWDhTZG5VOFY2NjNDNml1VTFCcV9haDFhRDJoNllPNi1pSWNLb1ppSU9KcjhrYUctaEtrUDd2R0pFekpROHdOM3FTX1dUOFNJLUo0TzJrT3dLU0lzTW1mUjc1WTBudTk1MVVYcWFmM1JidVJiT1FRUjgyc0VkUXpKX3FNbWt2MFlzRmVreHJQV2pOQnRiekhESENqdmQ5b0RUNV9GZEVZUFk2cmdXQWQ3MU84ajZfM1IxaWxBZ9IB7AFBVV95cUxNRWZIRmRlMVA5dGhVYmxpRkl4WHZtOTBoRGJGOXZiR2VkaTF3eS1oSFN6T1Z0Vnc5MU9hRVhKTDBXbmFBem9vUEZVMW90Q09ZTDVqZ0lpZ25QN3dZbkhtQ09lTkVLSXpqSnV2Ui1KeUxTLTBTdGxwd0pieE9nVEZyN1dDU0tvZkRRbUhpN3BaNHVwak1MRjFVem12R1FNWmk1dkdFVUp5UVlPc3Q5eWNKZ3ZsYjZzenRocGx1b2x0S2s5eUVwY3FNUTFma0NTR1FLV1Q1c3A4WEtnNVZyX0VCOFJGeWN5RjVBVktpVQ?hl=en-IN&gl=IN&ceid=IN%3Aen",
+      "source": "financialexpress.com",
+      "published_at": "2026-03-22T07:00:00+00:00",
+      "sentiment": "neutral",
+      "sentiment_score": 0.0021,
+      "confidence": 0.9106,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "RELIANCE.NS",
+          "name": "Reliance Industries",
+          "sector": "Conglomerate",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": 3.34,
+          "sentiment_30d": 5.5
+        }
+      ]
+    },
+    {
+      "uuid": "ed3399fe-bdb1-41c5-98c5-260d12a3a670",
+      "title": "IT stocks rise up to 3% after Accenture raises growth guidance; TCS, Infy up 1-2% as brokerages eye AI tailwind",
+      "snippet": "Select IT stocks rose up to 3 percent, while heavyweights such as Infosys and TCS were also up by 1-2 percent each today. The trigger for the move was...",
+      "url": "https://www.moneycontrol.com/news/business/stocks/it-stocks-rise-up-to-3-after-accenture-raises-growth-guidance-tcs-infosys-gain-1-2-as-brokerages-see-stability-ai-tailwind-13865773.html",
+      "source": "moneycontrol",
+      "published_at": "2026-03-20T09:47:00+00:00",
+      "sentiment": "positive",
+      "sentiment_score": 0.6053,
+      "confidence": 0.9464,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "TCS.NS",
+          "name": "Tata Consultancy Services",
+          "sector": "IT Services",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": -4.54,
+          "sentiment_30d": -9.24
+        }
+      ]
+    },
+    {
+      "uuid": "c80b4a2b-a0c0-4b91-aedc-ea4fa891926f",
+      "title": "Stocks to Watch Today: TCS, NTPC, Shanthi Gears, Gillette, Bharti Airtel, Shree Ram Twistex, IndiQube Spaces, Tata Elxsi in focus on 20 March",
+      "snippet": "Stocks to Watch, 20 March: Stocks like Shree Ram Twistex, Tata Consultancy Services, IndiQube Spaces, NTPC, Samvardhana Motherson International, Shant...",
+      "url": "https://www.moneycontrol.com/news/business/markets/stocks-to-watch-today-tcs-ntpc-shanthi-gears-gillette-bharti-airtel-shree-ram-twistex-indiqube-spaces-tata-elxsi-in-focus-on-20-march-13865583.html",
+      "source": "moneycontrol",
+      "published_at": "2026-03-20T01:59:00+00:00",
+      "sentiment": "neutral",
+      "sentiment_score": 0.0009,
+      "confidence": 0.9432,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "TCS.NS",
+          "name": "Tata Consultancy Services",
+          "sector": "IT Services",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": -4.54,
+          "sentiment_30d": -9.24
+        }
+      ]
+    },
+    {
+      "uuid": "b341ebd9-27a9-432b-ad3f-b34ee8d78959",
+      "title": "CLSA dismisses AI threat to IT firms, Nifty IT jumps nearly 3%; Infosys, TCS, HCL Tech among top gainers",
+      "snippet": "CLSA said that in its discussions with major IT firms including TCS, Infosys, HCL Tech and Wipro, the brokerage found no evidence of increased pricing...",
+      "url": "https://www.moneycontrol.com/news/business/stocks/clsa-dismisses-ai-threat-to-it-firms-nifty-it-jumps-over-4-infosys-tcs-hcl-tech-among-top-gainers-13863791.html",
+      "source": "moneycontrol",
+      "published_at": "2026-03-18T11:44:00+00:00",
+      "sentiment": "positive",
+      "sentiment_score": 0.5736,
+      "confidence": 0.9351,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "TCS.NS",
+          "name": "Tata Consultancy Services",
+          "sector": "IT Services",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": -4.54,
+          "sentiment_30d": -9.24
+        }
+      ]
+    },
+    {
+      "uuid": "e722d4e0-0a5b-4f03-8def-8154e70e48f5",
+      "title": "Stocks to Watch Today: Tata Motors, Andhra Cements, Sun Pharma, GMDC, Axiscades, Power Mech, Zydus Lifesciences, Bajaj Electricals in focus on 17 March",
+      "snippet": "Stocks to Watch, 17 March: Stocks like Reliance Industries, Tata Motors, Andhra Cements, Sun Pharmaceutical Industries, Rail Vikas Nigam, Gujarat Mine...",
+      "url": "https://www.moneycontrol.com/news/business/markets/stocks-to-watch-today-tata-motors-andhra-cements-sun-pharma-gmdc-axiscades-power-mech-zydus-lifesciences-bajaj-electricals-in-focus-on-17-march-13862343.html",
+      "source": "moneycontrol",
+      "published_at": "2026-03-17T02:25:00+00:00",
+      "sentiment": "neutral",
+      "sentiment_score": 0.0006,
+      "confidence": 0.9448,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "RELIANCE.NS",
+          "name": "Reliance Industries",
+          "sector": "Conglomerate",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": 3.34,
+          "sentiment_30d": 5.5
+        }
+      ]
+    },
+    {
+      "uuid": "d44c1288-b418-4984-bcc2-18494f1d9a3e",
+      "title": "Buy Reliance Industries; target of Rs 1750: Motilal Oswal",
+      "snippet": "Motilal Oswal is bullish on Reliance Industries recommended buy rating on the stock with a target price of Rs 1750 in its research report dated March ...",
+      "url": "https://www.moneycontrol.com/news/business/stocks/buy-reliance-industries-target-of-rs-1750-motilal-oswal-2-13858981.html",
+      "source": "moneycontrol",
+      "published_at": "2026-03-13T09:33:00+00:00",
+      "sentiment": "neutral",
+      "sentiment_score": -0.1506,
+      "confidence": 0.4966,
+      "is_market_sensitive": false,
+      "entities": [
+        {
+          "symbol": "RELIANCE.NS",
+          "name": "Reliance Industries",
+          "sector": "Conglomerate",
+          "exchange": "NSE",
+          "country": "IN",
+          "sentiment_7d": 3.34,
+          "sentiment_30d": 5.5
+        }
+      ]
+    }
+  ],
+  "sentiment": [
+    {
+      "symbol": "RELIANCE.NS",
+      "name": "Reliance Industries",
+      "sector": "Conglomerate",
+      "sentiment_7d": 3.34,
+      "sentiment_30d": 5.5,
+      "sentiment_label": "Neutral",
+      "updated_at": "2026-05-25T22:10:32.315678"
+    },
+    {
+      "symbol": "TCS.NS",
+      "name": "Tata Consultancy Services",
+      "sector": "IT Services",
+      "sentiment_7d": -4.54,
+      "sentiment_30d": -9.24,
+      "sentiment_label": "Neutral",
+      "updated_at": "2026-05-25T22:09:34.826179"
+    }
+  ],
+  "trending": [],
+  "sectors": [
+    {
+      "sector": "Healthcare",
+      "avg_sentiment_score": 0.1332,
+      "sentiment_label": "Neutral",
+      "total_articles": 97
+    },
+    {
+      "sector": "Industrials",
+      "avg_sentiment_score": 0.155,
+      "sentiment_label": "Neutral",
+      "total_articles": 203
+    },
+    {
+      "sector": "Technology",
+      "avg_sentiment_score": 0.1187,
+      "sentiment_label": "Neutral",
+      "total_articles": 61
+    },
+    {
+      "sector": "Communication Services",
+      "avg_sentiment_score": 0.0667,
+      "sentiment_label": "Neutral",
+      "total_articles": 8
+    },
+    {
+      "sector": "Unknown",
+      "avg_sentiment_score": 0.0569,
+      "sentiment_label": "Neutral",
+      "total_articles": 28
+    },
+    {
+      "sector": "Consumer Defensive",
+      "avg_sentiment_score": 0.0445,
+      "sentiment_label": "Neutral",
+      "total_articles": 56
+    },
+    {
+      "sector": "Financial Services",
+      "avg_sentiment_score": 0.0976,
+      "sentiment_label": "Neutral",
+      "total_articles": 89
+    },
+    {
+      "sector": "Basic Materials",
+      "avg_sentiment_score": 0.1009,
+      "sentiment_label": "Neutral",
+      "total_articles": 148
+    },
+    {
+      "sector": "Consumer Cyclical",
+      "avg_sentiment_score": 0.1522,
+      "sentiment_label": "Neutral",
+      "total_articles": 156
+    },
+    {
+      "sector": "Cement",
+      "avg_sentiment_score": 0.0035,
+      "sentiment_label": "Neutral",
+      "total_articles": 1
+    },
+    {
+      "sector": "Utilities",
+      "avg_sentiment_score": 0.0385,
+      "sentiment_label": "Neutral",
+      "total_articles": 13
+    },
+    {
+      "sector": "Automotive",
+      "avg_sentiment_score": 0.2151,
+      "sentiment_label": "Bullish",
+      "total_articles": 15
+    },
+    {
+      "sector": "Pharmaceuticals",
+      "avg_sentiment_score": 0.115,
+      "sentiment_label": "Neutral",
+      "total_articles": 4
+    },
+    {
+      "sector": "IT Services",
+      "avg_sentiment_score": -0.1395,
+      "sentiment_label": "Neutral",
+      "total_articles": 7
+    },
+    {
+      "sector": "Metals",
+      "avg_sentiment_score": 0.0774,
+      "sentiment_label": "Neutral",
+      "total_articles": 8
+    },
+    {
+      "sector": "Banking",
+      "avg_sentiment_score": 0.1074,
+      "sentiment_label": "Neutral",
+      "total_articles": 3
+    },
+    {
+      "sector": "Real Estate",
+      "avg_sentiment_score": 0.1377,
+      "sentiment_label": "Neutral",
+      "total_articles": 42
+    },
+    {
+      "sector": "Beverages",
+      "avg_sentiment_score": 0.0237,
+      "sentiment_label": "Neutral",
+      "total_articles": 1
+    },
+    {
+      "sector": "FMCG",
+      "avg_sentiment_score": 0.3102,
+      "sentiment_label": "Bullish",
+      "total_articles": 2
+    },
+    {
+      "sector": "Energy",
+      "avg_sentiment_score": 0.0763,
+      "sentiment_label": "Neutral",
+      "total_articles": 18
+    },
+    {
+      "sector": "Insurance",
+      "avg_sentiment_score": 0.2452,
+      "sentiment_label": "Bullish",
+      "total_articles": 2
+    },
+    {
+      "sector": "Oil & Gas",
+      "avg_sentiment_score": 0.0668,
+      "sentiment_label": "Neutral",
+      "total_articles": 7
+    },
+    {
+      "sector": "Alcoholic Beverages",
+      "avg_sentiment_score": 0.4232,
+      "sentiment_label": "Bullish",
+      "total_articles": 1
+    },
+    {
+      "sector": "Engineering",
+      "avg_sentiment_score": 0.1704,
+      "sentiment_label": "Neutral",
+      "total_articles": 3
+    },
+    {
+      "sector": "Conglomerate",
+      "avg_sentiment_score": 0.0004,
+      "sentiment_label": "Neutral",
+      "total_articles": 2
+    },
+    {
+      "sector": "Retail",
+      "avg_sentiment_score": 0.0032,
+      "sentiment_label": "Neutral",
+      "total_articles": 1
+    },
+    {
+      "sector": "Power & Utilities",
+      "avg_sentiment_score": -0.0982,
+      "sentiment_label": "Neutral",
+      "total_articles": 4
+    },
+    {
+      "sector": "Electricals ",
+      "avg_sentiment_score": 0.4142,
+      "sentiment_label": "Bullish",
+      "total_articles": 5
+    },
+    {
+      "sector": "Finance",
+      "avg_sentiment_score": 0.2246,
+      "sentiment_label": "Bullish",
+      "total_articles": 12
+    },
+    {
+      "sector": "Engineering & Construction",
+      "avg_sentiment_score": 0.0008,
+      "sentiment_label": "Neutral",
+      "total_articles": 1
+    },
+    {
+      "sector": "Jewellery & Watches",
+      "avg_sentiment_score": 0.0032,
+      "sentiment_label": "Neutral",
+      "total_articles": 1
+    },
+    {
+      "sector": "Defense & Electronics",
+      "avg_sentiment_score": 0.0006,
+      "sentiment_label": "Neutral",
+      "total_articles": 1
+    }
+  ]
+}

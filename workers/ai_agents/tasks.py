@@ -106,24 +106,17 @@ Detailed paragraph expanding the bear argument with data points and linked sourc
     def compliance_task(self, agent):
         return Task(
             description="""
-Review the Reddit post, Medium article, and Social Snippet produced by the previous agents.
+Review the Social Snippet produced by the previous agents.
 1. Ensure no sentence makes absolute guarantees of profit or loss.
 2. Soften any language like 'will rise', 'guaranteed', 'certain to'.
-3. Append the SEBI disclaimer verbatim to the bottom of the Reddit and Medium content.
-4. CRITICAL: Do NOT remove or modify any source URLs or Markdown links found in the content. Every link from the previous agents MUST be preserved in the final output.
+3. CRITICAL: Do NOT remove or modify any source URLs or Markdown links found in the content. Every link from the previous agents MUST be preserved in the final output.
 
-Return the FINAL approved versions using these exact markers:
+Return the FINAL approved version using this exact marker:
 [[SOCIAL_SNIPPET]]
 (Short snippet here)
-
-[[REDDIT]]
-(Reddit post here)
-
-[[MEDIUM]]
-(Medium article here)
 """,
             expected_output=(
-                "The final, compliance-approved Reddit Post, Medium Article, and Social Snippet, separated by [[REDDIT]], [[MEDIUM]], and [[SOCIAL_SNIPPET]] markers."
+                "The final, compliance-approved Social Snippet, wrapped in the [[SOCIAL_SNIPPET]] marker."
             ),
             agent=agent,
         )
